@@ -21,36 +21,28 @@ npm run build
 
 # Run Laravel migrations (only if database is available)
 if [ "$RAILWAY_ENVIRONMENT" = "production" ]; then
-    echo "� Setting up database variables..."
-    export DB_CONNECTION=mysql
-    export DB_HOST=$MYSQLHOST
-    export DB_PORT=3306
-    export DB_DATABASE=railway
-    export DB_USERNAME=root
-    export DB_PASSWORD=$MYSQLPASSWORD
+    echo "🗃️ Configurando banco de dados..."
     
-    echo "🔗 Testing database connection..."
-    php -r "
-    try {
-        \$pdo = new PDO('mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'));
-        echo '✅ Database connection successful!' . PHP_EOL;
-    } catch (Exception \$e) {
-        echo '❌ Database connection failed: ' . \$e->getMessage() . PHP_EOL;
-        echo 'Continuing without database operations...' . PHP_EOL;
-        exit 0;
-    }
-    "
+    # Aguardar banco estar disponível
+    echo "⏳ Aguardando banco de dados estar pronto..."
+    for i in {1..30}; do
+        if php -r "try { new PDO('mysql:host=' . getenv('MYSQLHOST') . ';port=3306;dbname=railway', 'root', getenv('MYSQLPASSWORD')); echo 'ready'; exit(0); } catch(Exception \$e) { exit(1); }" 2>/dev/null; then
+            echo "✅ Banco de dados está pronto!"
+            break
+        fi
+        echo "Tentativa $i/30 - Aguardando banco..."
+        sleep 10
+    done
     
-    echo "�🗃️  Running database migrations..."
-    php artisan migrate --force
+    # Executar script de migração
+    echo "🚀 Executando script de migração..."
+    ./railway-migrate.sh
     
-    echo "🌱 Running database seeders..."
-    php artisan db:seed --force
-    
-    echo "⚡ Optimizing Laravel..."
+    # Otimização final (só após migrações)
+    echo "⚡ Otimização final..."
     php artisan config:cache
-    php artisan route:cache
     php artisan view:cache
+    # Não fazer route:cache ainda devido ao conflito
 fi
 
 echo "✅ Build completed successfully!"
