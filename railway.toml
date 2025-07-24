@@ -2,7 +2,7 @@
 builder = "dockerfile"
 
 [deploy]
-healthcheckPath = "/health.php"
-healthcheckTimeout = 120
+# healthcheckPath = "/health.php"  # Desabilitado temporariamente
+# healthcheckTimeout = 180
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 5
+restartPolicyMaxRetries = 3
