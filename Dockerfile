@@ -47,12 +47,9 @@ RUN chmod -R 755 storage bootstrap/cache
 # Configure Apache properly
 RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 
-# Configure Apache to use Railway's PORT
-RUN echo 'Listen ${PORT:-80}' > /etc/apache2/ports.conf
-
-# Create proper Apache config with dynamic port
+# Create simple Apache config with fixed port 80
 COPY <<EOF /etc/apache2/sites-available/000-default.conf
-<VirtualHost *:\${PORT:-80}>
+<VirtualHost *:80>
     ServerName localhost
     DocumentRoot /var/www/html/public
     
@@ -86,14 +83,6 @@ COPY <<'EOF' /start.sh
 set -e
 
 echo "🚀 Starting Laravel application..."
-
-# Set default port if not provided
-export PORT=${PORT:-80}
-echo "📡 Using port: $PORT"
-
-# Process Apache config with PORT variable
-envsubst '${PORT}' < /etc/apache2/sites-available/000-default.conf > /tmp/apache-site.conf
-mv /tmp/apache-site.conf /etc/apache2/sites-available/000-default.conf
 
 # Wait for MySQL if available
 if [ ! -z "$MYSQL_HOST" ]; then
@@ -140,21 +129,19 @@ php artisan --version
 echo '<?php echo "PONG"; ?>' > /var/www/html/public/ping.php
 
 # Test Apache config
+echo "🔧 Testing Apache configuration..."
 apache2ctl configtest
 
 # Start Apache
-echo "🌐 Starting Apache on port $PORT..."
+echo "🌐 Starting Apache on port 80..."
 exec apache2-foreground
 EOF
 
 RUN chmod +x /start.sh
 
-# Install envsubst for port substitution
-RUN apt-get update && apt-get install -y gettext-base && apt-get clean
+# Remove envsubst since we're not using dynamic ports anymore
+# RUN apt-get update && apt-get install -y gettext-base && apt-get clean
 
-# Remove old healthcheck since we're disabling it
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-#     CMD curl -f http://localhost/health.php || curl -f http://localhost/ping.php || exit 1
-
-EXPOSE ${PORT:-80}
+# No healthcheck since we disabled it
+EXPOSE 80
 CMD ["/start.sh"]
