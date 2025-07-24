@@ -47,7 +47,7 @@ RUN chmod -R 755 storage bootstrap/cache
 # Configure Apache properly
 RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 
-# Create simple Apache config with fixed port 80
+# Create simple Apache config with HTTPS security headers
 COPY <<EOF /etc/apache2/sites-available/000-default.conf
 <VirtualHost *:80>
     ServerName localhost
@@ -66,14 +66,20 @@ COPY <<EOF /etc/apache2/sites-available/000-default.conf
         RewriteRule ^(.*)$ index.php [QSA,L]
     </Directory>
     
+    # HTTPS Security Headers
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Force HTTPS URLs
+    Header always set Content-Security-Policy "upgrade-insecure-requests"
+    
     # Logs
     ErrorLog /dev/stderr
     CustomLog /dev/stdout combined
     LogLevel warn
-    
-    # Security
-    Header always set X-Content-Type-Options nosniff
-    Header always set X-Frame-Options DENY
 </VirtualHost>
 EOF
 
@@ -83,6 +89,12 @@ COPY <<'EOF' /start.sh
 set -e
 
 echo "🚀 Starting Laravel application..."
+
+# Set HTTPS environment variables
+export APP_URL="https://vue-laravel-task-manager-production.up.railway.app"
+export ASSET_URL="https://vue-laravel-task-manager-production.up.railway.app"
+export APP_FORCE_HTTPS="true"
+export SESSION_SECURE_COOKIE="true"
 
 # Wait for MySQL if available
 if [ ! -z "$MYSQL_HOST" ]; then
@@ -133,7 +145,7 @@ echo "🔧 Testing Apache configuration..."
 apache2ctl configtest
 
 # Start Apache
-echo "🌐 Starting Apache on port 80..."
+echo "🌐 Starting Apache on port 80 with HTTPS headers..."
 exec apache2-foreground
 EOF
 

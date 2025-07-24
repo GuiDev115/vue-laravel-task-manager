@@ -17,4 +17,14 @@ export default defineConfig({
             },
         }),
     ],
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: undefined,
+            },
+        },
+    },
+    base: process.env.NODE_ENV === 'production' 
+        ? 'https://vue-laravel-task-manager-production.up.railway.app/' 
+        : '/',
 });
