@@ -59,6 +59,10 @@ const isAdmin = computed(() => currentUser.value?.role === 'admin');
 const filteredTasks = computed(() => {
     return tasks.value || [];
 });
+const minDate = computed(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+});
 
 // Métodos para validação
 const validateForm = () => {
@@ -77,6 +81,12 @@ const validateForm = () => {
         hasErrors = true;
     } else if (form.value.title.length > 255) {
         errors.title = 'O título deve ter no máximo 255 caracteres';
+        hasErrors = true;
+    }
+    
+    // Validar descrição (opcional, mas se preenchida deve ter limite)
+    if (form.value.description && form.value.description.length > 1000) {
+        errors.description = 'A descrição deve ter no máximo 1000 caracteres';
         hasErrors = true;
     }
     
@@ -108,6 +118,72 @@ const clearFormErrors = () => {
         description: '',
         due_date: '',
         user_id: '',
+    };
+};
+
+// Validação em tempo real
+const validateField = (field) => {
+    switch (field) {
+        case 'title':
+            if (!form.value.title || form.value.title.trim() === '') {
+                formErrors.value.title = 'O título é obrigatório';
+            } else if (form.value.title.length > 255) {
+                formErrors.value.title = 'O título deve ter no máximo 255 caracteres';
+            } else {
+                formErrors.value.title = '';
+            }
+            break;
+        case 'description':
+            if (form.value.description && form.value.description.length > 1000) {
+                formErrors.value.description = 'A descrição deve ter no máximo 1000 caracteres';
+            } else {
+                formErrors.value.description = '';
+            }
+            break;
+        case 'due_date':
+            if (form.value.due_date) {
+                const selectedDate = new Date(form.value.due_date);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                if (selectedDate < today) {
+                    formErrors.value.due_date = 'A data de vencimento deve ser hoje ou uma data futura';
+                } else {
+                    formErrors.value.due_date = '';
+                }
+            } else {
+                formErrors.value.due_date = '';
+            }
+            break;
+        case 'user_id':
+            if (isAdmin.value && (!form.value.user_id || form.value.user_id === '')) {
+                formErrors.value.user_id = 'Selecione um usuário para atribuir a tarefa';
+            } else {
+                formErrors.value.user_id = '';
+            }
+            break;
+    }
+};
+
+// Função para obter o token CSRF de forma robusta
+const getCsrfToken = () => {
+    return document.head.querySelector('meta[name="csrf-token"]')?.content || 
+           document.querySelector('input[name="_token"]')?.value ||
+           window.Laravel?.csrfToken ||
+           window.axios.defaults.headers.common['X-CSRF-TOKEN'];
+};
+
+// Função para criar configuração padrão das requisições
+const getRequestConfig = () => {
+    const csrfToken = getCsrfToken();
+    return {
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        withCredentials: true
     };
 };
 
@@ -206,16 +282,18 @@ const saveTask = async () => {
         return;
     }
     
+    // Debug: verificar se o token CSRF está disponível
+    const debugCsrfToken = getCsrfToken();
+    if (!debugCsrfToken) {
+        console.error('CSRF token não encontrado');
+        showMessage('error', 'Erro de segurança. Recarregue a página e tente novamente.');
+        return;
+    }
+    
     try {
         loading.value = true;
         
-        const config = {
-            headers: {
-                'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]').content,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json'
-            }
-        };
+        const config = getRequestConfig();
         
         if (editingTask.value) {
             // Editar tarefa existente
@@ -240,6 +318,12 @@ const saveTask = async () => {
                     break;
                 case 403:
                     showMessage('error', 'Você não tem permissão para realizar esta ação');
+                    break;
+                case 419:
+                    showMessage('error', 'Sessão expirada. Recarregue a página e tente novamente.');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
                     break;
                 case 422:
                     // Erros de validação
@@ -267,12 +351,20 @@ const saveTask = async () => {
 };
 
 const toggleTask = async (task) => {
+    const previousStatus = task.completed;
+    const actionText = task.completed ? 'pendente' : 'concluída';
+    
     try {
+        // Obter token CSRF de forma mais robusta
+        const csrfToken = getCsrfToken();
+        
         await axios.patch(`/api/tasks/${task.id}/toggle`, {}, {
             headers: {
-                'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]').content,
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            withCredentials: true
         });
         
         // Atualizar localmente o status da tarefa
@@ -281,7 +373,7 @@ const toggleTask = async (task) => {
             tasks.value[index].completed = !tasks.value[index].completed;
         }
         
-        showMessage('success', `Tarefa marcada como ${task.completed ? 'pendente' : 'concluída'}!`);
+        showMessage('success', `Tarefa "${task.title}" marcada como ${actionText}!`);
         loadTasks();
     } catch (error) {
         console.error('Erro ao alterar status da tarefa:', error);
@@ -294,6 +386,12 @@ const toggleTask = async (task) => {
                 case 403:
                     showMessage('error', 'Você não tem permissão para alterar esta tarefa');
                     break;
+                case 419:
+                    showMessage('error', 'Sessão expirada. Recarregue a página e tente novamente.');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                    break;
                 default:
                     showMessage('error', 'Erro ao alterar status da tarefa');
             }
@@ -304,22 +402,27 @@ const toggleTask = async (task) => {
 };
 
 const deleteTask = async (task) => {
-    if (confirm('Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.')) {
+    if (confirm(`Tem certeza que deseja excluir a tarefa "${task.title}"? Esta ação não pode ser desfeita.`)) {
         try {
             loading.value = true;
+            
+            // Obter token CSRF de forma mais robusta
+            const csrfToken = getCsrfToken();
             
             // Verificar se a requisição tem as credenciais corretas
             const response = await axios.delete(`/api/tasks/${task.id}`, {
                 headers: {
-                    'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]').content,
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                withCredentials: true
             });
             
             // Remover localmente da lista
             tasks.value = tasks.value.filter(t => t.id !== task.id);
             
-            showMessage('success', 'Tarefa excluída com sucesso!');
+            showMessage('success', `Tarefa "${task.title}" excluída com sucesso!`);
             loadTasks();
         } catch (error) {
             console.error('Erro ao excluir tarefa:', error);
@@ -336,6 +439,12 @@ const deleteTask = async (task) => {
                         break;
                     case 404:
                         showMessage('error', 'Tarefa não encontrada');
+                        break;
+                    case 419:
+                        showMessage('error', 'Sessão expirada. Recarregue a página e tente novamente.');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
                         break;
                     default:
                         showMessage('error', 'Erro ao excluir tarefa');
@@ -473,7 +582,7 @@ onMounted(() => {
                             </svg>
                             <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Nenhuma tarefa encontrada</h3>
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                {{ isAdmin ? 'Comece criando uma nova tarefa.' : 'Não há tarefas atribuídas a você.' }}
+                                {{ isAdmin ? 'Comece criando uma nova tarefa.' : 'Não há tarefas atribuídas a você. Entre em contato com um administrador para solicitar novas tarefas.' }}
                             </p>
                         </div>
 
@@ -596,8 +705,11 @@ onMounted(() => {
                                     </label>
                                     <input
                                         v-model="form.title"
+                                        @input="validateField('title')"
+                                        @blur="validateField('title')"
                                         type="text"
                                         required
+                                        maxlength="255"
                                         :class="[
                                             'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
                                             formErrors.title 
@@ -606,9 +718,14 @@ onMounted(() => {
                                         ]"
                                         placeholder="Digite o título da tarefa"
                                     >
-                                    <p v-if="formErrors.title" class="mt-1 text-sm text-red-600 dark:text-red-400">
-                                        {{ formErrors.title }}
-                                    </p>
+                                    <div class="flex justify-between mt-1">
+                                        <p v-if="formErrors.title" class="text-sm text-red-600 dark:text-red-400">
+                                            {{ formErrors.title }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                                            {{ form.title ? form.title.length : 0 }}/255
+                                        </p>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -617,7 +734,10 @@ onMounted(() => {
                                     </label>
                                     <textarea
                                         v-model="form.description"
+                                        @input="validateField('description')"
+                                        @blur="validateField('description')"
                                         rows="3"
+                                        maxlength="1000"
                                         :class="[
                                             'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
                                             formErrors.description 
@@ -626,9 +746,14 @@ onMounted(() => {
                                         ]"
                                         placeholder="Descreva os detalhes da tarefa (opcional)"
                                     ></textarea>
-                                    <p v-if="formErrors.description" class="mt-1 text-sm text-red-600 dark:text-red-400">
-                                        {{ formErrors.description }}
-                                    </p>
+                                    <div class="flex justify-between mt-1">
+                                        <p v-if="formErrors.description" class="text-sm text-red-600 dark:text-red-400">
+                                            {{ formErrors.description }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                                            {{ form.description ? form.description.length : 0 }}/1000
+                                        </p>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -637,7 +762,10 @@ onMounted(() => {
                                     </label>
                                     <input
                                         v-model="form.due_date"
+                                        @change="validateField('due_date')"
+                                        @blur="validateField('due_date')"
                                         type="date"
+                                        :min="minDate"
                                         :class="[
                                             'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
                                             formErrors.due_date 
@@ -656,6 +784,8 @@ onMounted(() => {
                                     </label>
                                     <select
                                         v-model="form.user_id"
+                                        @change="validateField('user_id')"
+                                        @blur="validateField('user_id')"
                                         required
                                         :class="[
                                             'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',

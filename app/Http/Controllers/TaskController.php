@@ -67,8 +67,11 @@ class TaskController extends Controller
             'user_id' => 'required|exists:users,id',
         ], [
             'title.required' => 'O título é obrigatório',
+            'title.string' => 'O título deve ser um texto',
             'title.max' => 'O título deve ter no máximo 255 caracteres',
+            'description.string' => 'A descrição deve ser um texto',
             'description.max' => 'A descrição deve ter no máximo 1000 caracteres',
+            'due_date.date' => 'A data de vencimento deve ser uma data válida',
             'due_date.after_or_equal' => 'A data de vencimento deve ser hoje ou uma data futura',
             'user_id.required' => 'Selecione um usuário para atribuir a tarefa',
             'user_id.exists' => 'O usuário selecionado não existe',
@@ -117,8 +120,11 @@ class TaskController extends Controller
 
         $messages = [
             'title.required' => 'O título é obrigatório',
+            'title.string' => 'O título deve ser um texto',
             'title.max' => 'O título deve ter no máximo 255 caracteres',
+            'description.string' => 'A descrição deve ser um texto',
             'description.max' => 'A descrição deve ter no máximo 1000 caracteres',
+            'due_date.date' => 'A data de vencimento deve ser uma data válida',
             'due_date.after_or_equal' => 'A data de vencimento deve ser hoje ou uma data futura',
             'user_id.exists' => 'O usuário selecionado não existe',
         ];
