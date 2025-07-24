@@ -21,11 +21,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
     // Tasks routes
-    Route::get('/tasks', function () {
-        return Inertia::render('Tasks/Index', [
-            'users' => auth()->user()->isAdmin() ? User::all(['id', 'name', 'email']) : []
-        ]);
-    })->name('tasks.index');
+    Route::get('/tasks', [TaskController::class, 'indexPage'])->name('tasks.index');
     
     // Profile routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

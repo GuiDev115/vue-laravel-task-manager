@@ -7,20 +7,28 @@ import axios from 'axios';
 // Props
 const props = defineProps({
     users: Array,
+    tasks: Object,
+    filters: Object,
+    currentUser: Object,
 });
 
 // Estado reativo
-const tasks = ref([]);
+const tasks = ref(props.tasks?.data || []);
 const loading = ref(false);
 const showModal = ref(false);
 const editingTask = ref(null);
-const currentUser = ref({});
-const pagination = ref({});
+const currentUser = ref(props.currentUser || {});
+const pagination = ref({
+    current_page: props.tasks?.current_page || 1,
+    last_page: props.tasks?.last_page || 1,
+    per_page: props.tasks?.per_page || 10,
+    total: props.tasks?.total || 0,
+});
 
 // Filtros
 const filters = ref({
-    search: '',
-    status: 'all',
+    search: props.filters?.search || '',
+    status: props.filters?.status || 'all',
 });
 
 // Form data
@@ -32,44 +40,41 @@ const form = ref({
 });
 
 // Computed
-const isAdmin = computed(() => currentUser.value.role === 'admin');
+const isAdmin = computed(() => currentUser.value?.role === 'admin');
 const filteredTasks = computed(() => {
-    return tasks.value;
+    return tasks.value || [];
 });
 
 // Métodos
 const loadTasks = async () => {
     loading.value = true;
     try {
-        const params = new URLSearchParams();
+        const params = {};
         if (filters.value.status !== 'all') {
-            params.append('status', filters.value.status);
+            params.status = filters.value.status;
         }
         if (filters.value.search) {
-            params.append('search', filters.value.search);
+            params.search = filters.value.search;
         }
         
-        const response = await axios.get(`/api/tasks?${params.toString()}`);
-        tasks.value = response.data.data;
-        pagination.value = {
-            current_page: response.data.current_page,
-            last_page: response.data.last_page,
-            per_page: response.data.per_page,
-            total: response.data.total,
-        };
+        router.get('/tasks', params, {
+            preserveState: true,
+            onSuccess: (page) => {
+                tasks.value = page.props.tasks?.data || [];
+                pagination.value = {
+                    current_page: page.props.tasks?.current_page || 1,
+                    last_page: page.props.tasks?.last_page || 1,
+                    per_page: page.props.tasks?.per_page || 10,
+                    total: page.props.tasks?.total || 0,
+                };
+            },
+            onFinish: () => {
+                loading.value = false;
+            }
+        });
     } catch (error) {
         console.error('Erro ao carregar tarefas:', error);
-    } finally {
         loading.value = false;
-    }
-};
-
-const getCurrentUser = async () => {
-    try {
-        const response = await axios.get('/api/user');
-        currentUser.value = response.data;
-    } catch (error) {
-        console.error('Erro ao carregar usuário:', error);
     }
 };
 
@@ -139,8 +144,7 @@ const exportTasks = () => {
 
 // Lifecycle
 onMounted(() => {
-    getCurrentUser();
-    loadTasks();
+    // Tasks já carregadas via props do Inertia
 });
 </script>
 

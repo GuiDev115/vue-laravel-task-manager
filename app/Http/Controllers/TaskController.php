@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 
 class TaskController extends Controller
 {
@@ -207,5 +208,47 @@ class TaskController extends Controller
 
             fclose($handle);
         }, 'tasks.csv', $headers);
+    }
+
+    /**
+     * Render the tasks index page with Inertia
+     */
+    public function indexPage(Request $request)
+    {
+        $user = Auth::user();
+        $query = Task::with('user');
+
+        // Se não for admin, mostrar apenas suas próprias tarefas
+        if (!$user->isAdmin()) {
+            $query = $query->where('user_id', $user->id);
+        }
+
+        // Filtros
+        if ($request->has('status')) {
+            if ($request->status === 'completed') {
+                $query = $query->completed();
+            } elseif ($request->status === 'pending') {
+                $query = $query->pending();
+            }
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query = $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $tasks = $query->orderBy('due_date', 'asc')
+                      ->orderBy('created_at', 'desc')
+                      ->paginate($request->per_page ?? 10);
+
+        return Inertia::render('Tasks/Index', [
+            'tasks' => $tasks,
+            'users' => $user->isAdmin() ? \App\Models\User::all(['id', 'name', 'email']) : [],
+            'filters' => $request->only(['status', 'search']),
+            'currentUser' => $user,
+        ]);
     }
 }
