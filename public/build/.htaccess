@@ -1,0 +1,21 @@
+# Disable Laravel routing for assets
+RewriteEngine Off
+
+# Set correct MIME types
+<FilesMatch "\.js$">
+    Header set Content-Type "application/javascript; charset=utf-8"
+</FilesMatch>
+
+<FilesMatch "\.css$">
+    Header set Content-Type "text/css; charset=utf-8"
+</FilesMatch>
+
+# Security headers for assets
+Header always set X-Content-Type-Options nosniff
+
+# Cache control
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+    Header append Cache-Control "public"
+</FilesMatch>

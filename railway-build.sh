@@ -19,4 +19,18 @@ npm install --legacy-peer-deps --no-audit --no-fund
 echo "🏗️  Building assets..."
 npm run build
 
+# Run Laravel migrations (only if database is available)
+if [ "$RAILWAY_ENVIRONMENT" = "production" ]; then
+    echo "🗃️  Running database migrations..."
+    php artisan migrate --force
+    
+    echo "🌱 Running database seeders..."
+    php artisan db:seed --force
+    
+    echo "⚡ Optimizing Laravel..."
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+fi
+
 echo "✅ Build completed successfully!"
