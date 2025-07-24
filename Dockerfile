@@ -125,6 +125,12 @@ fi
 echo "🧪 Testing Laravel..."
 php artisan --version
 
+# Create simple ping endpoint for backup health check
+echo '<?php echo "PONG"; ?>' > /var/www/html/public/ping.php
+
+# Test Apache config
+apache2ctl configtest
+
 # Start Apache
 echo "🌐 Starting Apache..."
 exec apache2-foreground
@@ -133,8 +139,8 @@ EOF
 RUN chmod +x /start.sh
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:80/ || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost/health.php || curl -f http://localhost/ping.php || exit 1
 
 EXPOSE 80
 CMD ["/start.sh"]
