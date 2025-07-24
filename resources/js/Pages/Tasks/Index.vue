@@ -39,11 +39,90 @@ const form = ref({
     user_id: '',
 });
 
+// Form errors
+const formErrors = ref({
+    title: '',
+    description: '',
+    due_date: '',
+    user_id: '',
+});
+
+// Estado para mensagens
+const message = ref({
+    type: '',
+    text: '',
+    show: false,
+});
+
 // Computed
 const isAdmin = computed(() => currentUser.value?.role === 'admin');
 const filteredTasks = computed(() => {
     return tasks.value || [];
 });
+
+// Métodos para validação
+const validateForm = () => {
+    const errors = {
+        title: '',
+        description: '',
+        due_date: '',
+        user_id: '',
+    };
+    
+    let hasErrors = false;
+    
+    // Validar título obrigatório
+    if (!form.value.title || form.value.title.trim() === '') {
+        errors.title = 'O título é obrigatório';
+        hasErrors = true;
+    } else if (form.value.title.length > 255) {
+        errors.title = 'O título deve ter no máximo 255 caracteres';
+        hasErrors = true;
+    }
+    
+    // Validar usuário obrigatório para admins
+    if (isAdmin.value && (!form.value.user_id || form.value.user_id === '')) {
+        errors.user_id = 'Selecione um usuário para atribuir a tarefa';
+        hasErrors = true;
+    }
+    
+    // Validar data de vencimento
+    if (form.value.due_date) {
+        const selectedDate = new Date(form.value.due_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (selectedDate < today) {
+            errors.due_date = 'A data de vencimento deve ser hoje ou uma data futura';
+            hasErrors = true;
+        }
+    }
+    
+    formErrors.value = errors;
+    return !hasErrors;
+};
+
+const clearFormErrors = () => {
+    formErrors.value = {
+        title: '',
+        description: '',
+        due_date: '',
+        user_id: '',
+    };
+};
+
+const showMessage = (type, text) => {
+    message.value = {
+        type,
+        text,
+        show: true,
+    };
+    
+    // Auto-hide após 5 segundos
+    setTimeout(() => {
+        message.value.show = false;
+    }, 5000);
+};
 
 // Métodos
 const loadTasks = async () => {
@@ -80,9 +159,18 @@ const loadTasks = async () => {
 
 const openModal = (task = null) => {
     editingTask.value = task;
+    clearFormErrors();
+    
     if (task) {
-        form.value = { ...task };
+        // Ao editar, preencher o formulário com os dados da tarefa
+        form.value = {
+            title: task.title || '',
+            description: task.description || '',
+            due_date: task.due_date || '',
+            user_id: task.user_id || '',
+        };
     } else {
+        // Ao criar nova tarefa
         form.value = {
             title: '',
             description: '',
@@ -96,6 +184,7 @@ const openModal = (task = null) => {
 const closeModal = () => {
     showModal.value = false;
     editingTask.value = null;
+    clearFormErrors();
     form.value = {
         title: '',
         description: '',
@@ -105,35 +194,157 @@ const closeModal = () => {
 };
 
 const saveTask = async () => {
+    // Validar formulário antes de enviar
+    if (!validateForm()) {
+        showMessage('error', 'Por favor, corrija os erros no formulário');
+        return;
+    }
+    
+    // Verificar permissão para criação (apenas admins podem criar)
+    if (!editingTask.value && !isAdmin.value) {
+        showMessage('error', 'Apenas administradores podem criar novas tarefas');
+        return;
+    }
+    
     try {
+        loading.value = true;
+        
+        const config = {
+            headers: {
+                'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]').content,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            }
+        };
+        
         if (editingTask.value) {
-            await axios.put(`/api/tasks/${editingTask.value.id}`, form.value);
+            // Editar tarefa existente
+            await axios.put(`/api/tasks/${editingTask.value.id}`, form.value, config);
+            showMessage('success', 'Tarefa atualizada com sucesso!');
         } else {
-            await axios.post('/api/tasks', form.value);
+            // Criar nova tarefa
+            await axios.post('/api/tasks', form.value, config);
+            showMessage('success', 'Tarefa criada com sucesso!');
         }
+        
         closeModal();
         loadTasks();
     } catch (error) {
         console.error('Erro ao salvar tarefa:', error);
+        
+        // Tratar erros de validação do backend
+        if (error.response) {
+            switch (error.response.status) {
+                case 401:
+                    showMessage('error', 'Sessão expirada. Faça login novamente.');
+                    break;
+                case 403:
+                    showMessage('error', 'Você não tem permissão para realizar esta ação');
+                    break;
+                case 422:
+                    // Erros de validação
+                    if (error.response.data && error.response.data.errors) {
+                        const backendErrors = error.response.data.errors;
+                        Object.keys(backendErrors).forEach(key => {
+                            if (formErrors.value.hasOwnProperty(key)) {
+                                formErrors.value[key] = backendErrors[key][0];
+                            }
+                        });
+                        showMessage('error', 'Verifique os campos e tente novamente');
+                    } else {
+                        showMessage('error', 'Dados inválidos');
+                    }
+                    break;
+                default:
+                    showMessage('error', 'Erro ao salvar tarefa. Tente novamente.');
+            }
+        } else {
+            showMessage('error', 'Erro de conexão. Verifique sua internet.');
+        }
+    } finally {
+        loading.value = false;
     }
 };
 
 const toggleTask = async (task) => {
     try {
-        await axios.patch(`/api/tasks/${task.id}/toggle`);
+        await axios.patch(`/api/tasks/${task.id}/toggle`, {}, {
+            headers: {
+                'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]').content,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        // Atualizar localmente o status da tarefa
+        const index = tasks.value.findIndex(t => t.id === task.id);
+        if (index !== -1) {
+            tasks.value[index].completed = !tasks.value[index].completed;
+        }
+        
+        showMessage('success', `Tarefa marcada como ${task.completed ? 'pendente' : 'concluída'}!`);
         loadTasks();
     } catch (error) {
         console.error('Erro ao alterar status da tarefa:', error);
+        
+        if (error.response) {
+            switch (error.response.status) {
+                case 401:
+                    showMessage('error', 'Sessão expirada. Faça login novamente.');
+                    break;
+                case 403:
+                    showMessage('error', 'Você não tem permissão para alterar esta tarefa');
+                    break;
+                default:
+                    showMessage('error', 'Erro ao alterar status da tarefa');
+            }
+        } else {
+            showMessage('error', 'Erro de conexão. Verifique sua internet.');
+        }
     }
 };
 
 const deleteTask = async (task) => {
-    if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+    if (confirm('Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.')) {
         try {
-            await axios.delete(`/api/tasks/${task.id}`);
+            loading.value = true;
+            
+            // Verificar se a requisição tem as credenciais corretas
+            const response = await axios.delete(`/api/tasks/${task.id}`, {
+                headers: {
+                    'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]').content,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            // Remover localmente da lista
+            tasks.value = tasks.value.filter(t => t.id !== task.id);
+            
+            showMessage('success', 'Tarefa excluída com sucesso!');
             loadTasks();
         } catch (error) {
             console.error('Erro ao excluir tarefa:', error);
+            
+            if (error.response) {
+                switch (error.response.status) {
+                    case 401:
+                        showMessage('error', 'Sessão expirada. Faça login novamente.');
+                        // Opcional: redirecionar para login
+                        // window.location.href = '/login';
+                        break;
+                    case 403:
+                        showMessage('error', 'Você não tem permissão para excluir esta tarefa');
+                        break;
+                    case 404:
+                        showMessage('error', 'Tarefa não encontrada');
+                        break;
+                    default:
+                        showMessage('error', 'Erro ao excluir tarefa');
+                }
+            } else {
+                showMessage('error', 'Erro de conexão. Verifique sua internet.');
+            }
+        } finally {
+            loading.value = false;
         }
     }
 };
@@ -176,7 +387,44 @@ onMounted(() => {
         </template>
 
         <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
+                
+                <!-- Mensagens de Feedback -->
+                <div 
+                    v-if="message.show" 
+                    class="rounded-md p-4 transition-all duration-300"
+                    :class="{
+                        'bg-green-50 border border-green-200 text-green-800 dark:bg-green-800/20 dark:border-green-600 dark:text-green-200': message.type === 'success',
+                        'bg-red-50 border border-red-200 text-red-800 dark:bg-red-800/20 dark:border-red-600 dark:text-red-200': message.type === 'error'
+                    }"
+                >
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg v-if="message.type === 'success'" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <svg v-if="message.type === 'error'" class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium">{{ message.text }}</p>
+                        </div>
+                        <div class="ml-auto pl-3">
+                            <button @click="message.show = false" class="inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                                :class="{
+                                    'text-green-500 hover:bg-green-100 focus:ring-green-600 focus:ring-offset-green-50 dark:hover:bg-green-800/30': message.type === 'success',
+                                    'text-red-500 hover:bg-red-100 focus:ring-red-600 focus:ring-offset-red-50 dark:hover:bg-red-800/30': message.type === 'error'
+                                }"
+                            >
+                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Filtros -->
                 <div class="mb-6 overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800">
                     <div class="p-6">
@@ -350,8 +598,17 @@ onMounted(() => {
                                         v-model="form.title"
                                         type="text"
                                         required
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.title 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
+                                        placeholder="Digite o título da tarefa"
                                     >
+                                    <p v-if="formErrors.title" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.title }}
+                                    </p>
                                 </div>
                                 
                                 <div>
@@ -361,8 +618,17 @@ onMounted(() => {
                                     <textarea
                                         v-model="form.description"
                                         rows="3"
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.description 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
+                                        placeholder="Descreva os detalhes da tarefa (opcional)"
                                     ></textarea>
+                                    <p v-if="formErrors.description" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.description }}
+                                    </p>
                                 </div>
                                 
                                 <div>
@@ -372,8 +638,16 @@ onMounted(() => {
                                     <input
                                         v-model="form.due_date"
                                         type="date"
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.due_date 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
                                     >
+                                    <p v-if="formErrors.due_date" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.due_date }}
+                                    </p>
                                 </div>
                                 
                                 <div v-if="isAdmin">
@@ -383,7 +657,12 @@ onMounted(() => {
                                     <select
                                         v-model="form.user_id"
                                         required
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.user_id 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
                                     >
                                         <option value="">Selecione um usuário</option>
                                         <option
@@ -394,6 +673,9 @@ onMounted(() => {
                                             {{ user.name }} ({{ user.email }})
                                         </option>
                                     </select>
+                                    <p v-if="formErrors.user_id" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.user_id }}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -401,14 +683,30 @@ onMounted(() => {
                         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse dark:bg-gray-700">
                             <button
                                 type="submit"
-                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                                :disabled="loading"
+                                :class="[
+                                    'w-full inline-flex justify-center items-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm',
+                                    loading 
+                                        ? 'bg-blue-400 cursor-not-allowed' 
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                ]"
                             >
-                                {{ editingTask ? 'Atualizar' : 'Criar' }}
+                                <svg v-if="loading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {{ loading ? 'Salvando...' : (editingTask ? 'Atualizar' : 'Criar') }}
                             </button>
                             <button
                                 type="button"
                                 @click="closeModal"
-                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500 dark:hover:bg-gray-700"
+                                :disabled="loading"
+                                :class="[
+                                    'mt-3 w-full inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm',
+                                    loading 
+                                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-500 dark:text-gray-300 dark:border-gray-400'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500 dark:hover:bg-gray-700'
+                                ]"
                             >
                                 Cancelar
                             </button>

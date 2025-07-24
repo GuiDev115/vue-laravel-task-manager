@@ -40,7 +40,7 @@ const showingNavigationDropdown = ref(false);
                                     Dashboard
                                 </NavLink>
                                 <NavLink
-                                    :href="route('tasks.page')"
+                                    :href="route('tasks.index')"
                                     :active="route().current('tasks.*')"
                                 >
                                     Tarefas
@@ -153,7 +153,7 @@ const showingNavigationDropdown = ref(false);
                             Dashboard
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
-                            :href="route('tasks.page')"
+                            :href="route('tasks.index')"
                             :active="route().current('tasks.*')"
                         >
                             Tarefas
