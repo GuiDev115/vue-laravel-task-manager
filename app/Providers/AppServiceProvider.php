@@ -23,9 +23,14 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
         
-        // Force HTTPS in production - safe environment check
+        // Force HTTPS in production, but be smarter about it
         if (env('APP_ENV') === 'production') {
             URL::forceScheme('https');
+            
+            // Trust Railway proxies
+            if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+                $this->app['request']->server->set('HTTPS', 'on');
+            }
         }
     }
 }

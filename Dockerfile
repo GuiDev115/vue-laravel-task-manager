@@ -101,15 +101,11 @@ COPY <<EOF /etc/apache2/sites-available/000-default.conf
         </FilesMatch>
     </Directory>
     
-    # HTTPS Security Headers
-    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    # Security Headers (removed problematic CSP)
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    
-    # Force HTTPS URLs
-    Header always set Content-Security-Policy "upgrade-insecure-requests"
     
     # Logs
     ErrorLog /dev/stderr
