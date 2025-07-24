@@ -46,9 +46,13 @@ RUN ls -la /var/www/html/public/build/assets/ || echo "Assets directory not foun
 # Create Laravel directories
 RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache
 
-# Set permissions
+# Set permissions BEFORE setting ownership
+RUN chmod -R 775 storage bootstrap/cache
+RUN touch storage/logs/laravel.log
+RUN chmod 666 storage/logs/laravel.log
+
+# Set ownership
 RUN chown -R www-data:www-data /var/www/html
-RUN chmod -R 755 storage bootstrap/cache
 
 # Configure Apache properly
 RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
@@ -126,6 +130,22 @@ export APP_URL="https://vue-laravel-task-manager-production.up.railway.app"
 export ASSET_URL="https://vue-laravel-task-manager-production.up.railway.app"
 export APP_FORCE_HTTPS="true"
 export SESSION_SECURE_COOKIE="true"
+export LOG_CHANNEL="stderr"
+export LOG_LEVEL="error"
+
+# Fix permissions for storage
+echo "🔧 Fixing storage permissions..."
+mkdir -p /var/www/html/storage/logs
+mkdir -p /var/www/html/storage/framework/{cache,sessions,views}
+mkdir -p /var/www/html/bootstrap/cache
+
+# Create log file if it doesn't exist
+touch /var/www/html/storage/logs/laravel.log
+
+# Set proper permissions
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+chmod 666 /var/www/html/storage/logs/laravel.log
 
 # Wait for MySQL if available
 if [ ! -z "$MYSQL_HOST" ]; then

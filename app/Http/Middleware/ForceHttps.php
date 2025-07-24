@@ -17,7 +17,7 @@ class ForceHttps
         if (
             env('APP_ENV') === 'production' && 
             !$request->secure() && 
-            !$request->isLocal()
+            !in_array($request->ip(), ['127.0.0.1', '::1', 'localhost'])
         ) {
             return redirect()->secure($request->getRequestUri(), 301);
         }
