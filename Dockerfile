@@ -25,6 +25,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Enable Apache modules
 RUN a2enmod rewrite
 RUN a2enmod headers
+RUN a2enmod expires
+RUN a2enmod mime
 
 # Set working directory
 WORKDIR /var/www/html
@@ -36,6 +38,10 @@ COPY . .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN npm ci --legacy-peer-deps
 RUN npm run build
+
+# Verify build assets were created
+RUN ls -la /var/www/html/public/build/ || echo "Build directory not found"
+RUN ls -la /var/www/html/public/build/assets/ || echo "Assets directory not found"
 
 # Create Laravel directories
 RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache
@@ -64,6 +70,31 @@ COPY <<EOF /etc/apache2/sites-available/000-default.conf
         RewriteCond %{REQUEST_FILENAME} !-f
         RewriteCond %{REQUEST_FILENAME} !-d
         RewriteRule ^(.*)$ index.php [QSA,L]
+    </Directory>
+    
+    # Serve static assets directly without Laravel routing
+    <Directory /var/www/html/public/build>
+        Options -Indexes +FollowSymLinks
+        AllowOverride None
+        Require all granted
+        
+        # Don't route assets through Laravel
+        RewriteEngine Off
+        
+        # Set correct MIME types
+        <FilesMatch "\.js$">
+            Header set Content-Type "application/javascript; charset=utf-8"
+        </FilesMatch>
+        <FilesMatch "\.css$">
+            Header set Content-Type "text/css; charset=utf-8"
+        </FilesMatch>
+        
+        # Cache static assets
+        <FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+            ExpiresActive On
+            ExpiresDefault "access plus 1 month"
+            Header append Cache-Control "public"
+        </FilesMatch>
     </Directory>
     
     # HTTPS Security Headers
@@ -136,6 +167,10 @@ fi
 # Test if Laravel is working
 echo "🧪 Testing Laravel..."
 php artisan --version
+
+# Verify assets exist
+echo "📁 Checking build assets..."
+ls -la /var/www/html/public/build/assets/ | head -10
 
 # Create simple ping endpoint for backup health check
 echo '<?php echo "PONG"; ?>' > /var/www/html/public/ping.php

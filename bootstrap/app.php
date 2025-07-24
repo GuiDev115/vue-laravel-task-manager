@@ -17,10 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // Force HTTPS in production
-        if (app()->environment('production')) {
-            $middleware->web(\App\Http\Middleware\ForceHttps::class);
-        }
+        // Add HTTPS middleware only if in production
+        $middleware->web(\App\Http\Middleware\ForceHttps::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

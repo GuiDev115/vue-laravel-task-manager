@@ -23,8 +23,11 @@ export default defineConfig({
                 manualChunks: undefined,
             },
         },
+        assetsDir: 'assets',
+        outDir: 'public/build',
+        emptyOutDir: true,
     },
     base: process.env.NODE_ENV === 'production' 
-        ? 'https://vue-laravel-task-manager-production.up.railway.app/' 
+        ? '/build/' 
         : '/',
 });

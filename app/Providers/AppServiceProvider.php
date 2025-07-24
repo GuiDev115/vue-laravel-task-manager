@@ -23,8 +23,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
         
-        // Force HTTPS in production
-        if (config('app.env') === 'production') {
+        // Force HTTPS in production - safe environment check
+        if (env('APP_ENV') === 'production') {
             URL::forceScheme('https');
         }
     }
