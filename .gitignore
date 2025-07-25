@@ -10,30 +10,53 @@ vendor/
 
 public/build/
 public/hot
+public/mix-manifest.json
+public/storage
+/public/js
+/public/css
 
-# Storage and logs
-storage/app/public/*
+storage/app/*
+!storage/app/.gitkeep
+!storage/app/public/
+storage/framework/cache/*
+!storage/framework/cache/.gitkeep
+storage/framework/sessions/*
+!storage/framework/sessions/.gitkeep
+storage/framework/testing/*
+!storage/framework/testing/.gitkeep
+storage/framework/views/*
+!storage/framework/views/.gitkeep
 storage/logs/*
 !storage/logs/.gitkeep
 
-# Caches
 bootstrap/cache/*
 !bootstrap/cache/.gitkeep
 
-# IDE files
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# OS files
 .DS_Store
 Thumbs.db
 
-# Backup files
 *.backup
 *.sqlite.backup
 
-# Test files
 coverage/
 .nyc_output
+
+composer.phar
+auth.json
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+*.tsbuildinfo
+
+*.sqlite
+*.sqlite-journal
+database/database.sqlite
