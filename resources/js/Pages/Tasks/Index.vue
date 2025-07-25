@@ -21,8 +21,10 @@ const currentUser = ref(props.currentUser || {});
 const pagination = ref({
     current_page: props.tasks?.current_page || 1,
     last_page: props.tasks?.last_page || 1,
-    per_page: props.tasks?.per_page || 10,
+    per_page: 5, // Fixado em 5 tarefas por página
     total: props.tasks?.total || 0,
+    from: props.tasks?.from || 0,
+    to: props.tasks?.to || 0,
 });
 
 // Filtros
@@ -205,10 +207,14 @@ const showMessage = (type, text) => {
 };
 
 // Métodos
-const loadTasks = async () => {
+const loadTasks = async (page = 1) => {
     loading.value = true;
     try {
-        const params = {};
+        const params = {
+            page: page,
+            per_page: 5 // Sempre buscar 5 tarefas por página
+        };
+        
         if (filters.value.status !== 'all') {
             params.status = filters.value.status;
         }
@@ -223,8 +229,10 @@ const loadTasks = async () => {
                 pagination.value = {
                     current_page: page.props.tasks?.current_page || 1,
                     last_page: page.props.tasks?.last_page || 1,
-                    per_page: page.props.tasks?.per_page || 10,
+                    per_page: 5,
                     total: page.props.tasks?.total || 0,
+                    from: page.props.tasks?.from || 0,
+                    to: page.props.tasks?.to || 0,
                 };
             },
             onFinish: () => {
@@ -236,6 +244,63 @@ const loadTasks = async () => {
         loading.value = false;
     }
 };
+
+// Métodos de navegação de paginação
+const goToPage = (page) => {
+    if (page >= 1 && page <= pagination.value.last_page && page !== pagination.value.current_page) {
+        loadTasks(page);
+    }
+};
+
+const nextPage = () => {
+    if (pagination.value.current_page < pagination.value.last_page) {
+        goToPage(pagination.value.current_page + 1);
+    }
+};
+
+const previousPage = () => {
+    if (pagination.value.current_page > 1) {
+        goToPage(pagination.value.current_page - 1);
+    }
+};
+
+const firstPage = () => {
+    if (pagination.value.current_page !== 1) {
+        goToPage(1);
+    }
+};
+
+const lastPage = () => {
+    if (pagination.value.current_page !== pagination.value.last_page) {
+        goToPage(pagination.value.last_page);
+    }
+};
+
+// Computed para páginas visíveis na navegação
+const visiblePages = computed(() => {
+    const current = pagination.value.current_page;
+    const last = pagination.value.last_page;
+    const delta = 2; // Mostrar 2 páginas antes e depois da atual
+    
+    let start = Math.max(1, current - delta);
+    let end = Math.min(last, current + delta);
+    
+    // Ajustar para mostrar sempre 5 páginas quando possível
+    if (end - start < 4) {
+        if (start === 1) {
+            end = Math.min(last, start + 4);
+        } else if (end === last) {
+            start = Math.max(1, end - 4);
+        }
+    }
+    
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+        pages.push(i);
+    }
+    
+    return pages;
+});
 
 const openModal = (task = null) => {
     editingTask.value = task;
@@ -310,10 +375,9 @@ const saveTask = async () => {
             // Criar nova tarefa
             await axios.post('/api/tasks', form.value, config);
             showMessage('success', 'Tarefa criada com sucesso!');
-        }
-        
-        closeModal();
-        loadTasks();
+        }                        closeModal();
+                        // Recarregar a página atual para manter a paginação
+                        loadTasks(pagination.value.current_page);
     } catch (error) {
         console.error('Erro ao salvar tarefa:', error);
         
@@ -378,10 +442,9 @@ const toggleTask = async (task) => {
         const index = tasks.value.findIndex(t => t.id === task.id);
         if (index !== -1) {
             tasks.value[index].completed = !tasks.value[index].completed;
-        }
-        
-        showMessage('success', `Tarefa "${task.title}" marcada como ${actionText}!`);
-        loadTasks();
+        }                        showMessage('success', `Tarefa "${task.title}" marcada como ${actionText}!`);
+                        // Recarregar a página atual para manter a paginação
+                        loadTasks(pagination.value.current_page);
     } catch (error) {
         console.error('Erro ao alterar status da tarefa:', error);
         
@@ -427,10 +490,16 @@ const deleteTask = async (task) => {
             });
             
             // Remover localmente da lista
-            tasks.value = tasks.value.filter(t => t.id !== task.id);
-            
-            showMessage('success', `Tarefa "${task.title}" excluída com sucesso!`);
-            loadTasks();
+            tasks.value = tasks.value.filter(t => t.id !== task.id);                        showMessage('success', `Tarefa "${task.title}" excluída com sucesso!`);
+                        // Se não há mais tarefas na página atual e não é a primeira página, volta uma página
+                        const currentPage = pagination.value.current_page;
+                        const remainingTasks = tasks.value.length - 1;
+                        
+                        if (remainingTasks === 0 && currentPage > 1) {
+                            loadTasks(currentPage - 1);
+                        } else {
+                            loadTasks(currentPage);
+                        }
         } catch (error) {
             console.error('Erro ao excluir tarefa:', error);
             
@@ -680,6 +749,145 @@ onMounted(() => {
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Paginação -->
+                        <div v-if="pagination.total > 0" class="mt-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-6 py-4">
+                            <!-- Informações da Paginação -->
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center space-x-2">
+                                    <div class="bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
+                                        <span class="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                            {{ pagination.from }}-{{ pagination.to }}
+                                        </span>
+                                    </div>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">de</span>
+                                    <div class="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                                        <span class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                            {{ pagination.total }} tarefa{{ pagination.total !== 1 ? 's' : '' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">Página</span>
+                                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-3 py-1 rounded-full">
+                                        <span class="text-sm font-medium text-white">
+                                            {{ pagination.current_page }}
+                                        </span>
+                                    </div>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">de {{ pagination.last_page }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Controles de Navegação -->
+                            <div class="flex items-center justify-center">
+                                <nav class="inline-flex rounded-lg shadow-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                    <!-- Primeira Página -->
+                                    <button
+                                        @click="firstPage"
+                                        :disabled="pagination.current_page === 1"
+                                        :class="[
+                                            'relative inline-flex items-center px-3 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 transition-all duration-200',
+                                            pagination.current_page === 1 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                        title="Primeira página"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+
+                                    <!-- Página Anterior -->
+                                    <button
+                                        @click="previousPage"
+                                        :disabled="pagination.current_page === 1"
+                                        :class="[
+                                            'relative inline-flex items-center px-4 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 transition-all duration-200',
+                                            pagination.current_page === 1 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                    >
+                                        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                        <span class="hidden sm:inline"></span>
+                                        <span class="sm:hidden">Ant</span>
+                                    </button>
+
+                                    <!-- Números das Páginas -->
+                                    <div class="hidden sm:flex">
+                                        <template v-for="page in visiblePages" :key="page">
+                                            <button
+                                                @click="goToPage(page)"
+                                                :class="[
+                                                    'relative inline-flex items-center px-4 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 last:border-r-0 transition-all duration-200 min-w-[2.5rem] justify-center',
+                                                    page === pagination.current_page
+                                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg transform scale-105 z-10 font-semibold'
+                                                        : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                                ]"
+                                            >
+                                                {{ page }}
+                                            </button>
+                                        </template>
+                                    </div>
+
+                                    <!-- Números das Páginas (Mobile) -->
+                                    <div class="sm:hidden relative">
+                                        <select
+                                            :value="pagination.current_page"
+                                            @change="goToPage(parseInt($event.target.value))"
+                                            class="appearance-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 min-w-[4rem] text-center"
+                                        >
+                                            <option v-for="page in pagination.last_page" :key="page" :value="page">
+                                                {{ page }}
+                                            </option>
+                                        </select>
+                                        <div class="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+
+                                    <!-- Próxima Página -->
+                                    <button
+                                        @click="nextPage"
+                                        :disabled="pagination.current_page === pagination.last_page"
+                                        :class="[
+                                            'relative inline-flex items-center px-4 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 transition-all duration-200',
+                                            pagination.current_page === pagination.last_page 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                    >
+                                        <span class="hidden sm:inline"></span>
+                                        <span class="sm:hidden">Prox</span>
+                                        <svg class="h-4 w-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+
+                                    <!-- Última Página -->
+                                    <button
+                                        @click="lastPage"
+                                        :disabled="pagination.current_page === pagination.last_page"
+                                        :class="[
+                                            'relative inline-flex items-center px-3 py-2 text-sm font-medium transition-all duration-200',
+                                            pagination.current_page === pagination.last_page 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                        title="Última página"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </nav>
                             </div>
                         </div>
                     </div>

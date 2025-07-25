@@ -29,7 +29,7 @@ Um sistema completo de gerenciamento de tarefas desenvolvido com **Laravel 11** 
 - ✅ **Busca por título e descrição**
 - ✅ **Filtros por status** (Todas/Pendentes/Concluídas)
 - ✅ **Ordenação inteligente**
-- ✅ **Paginação**
+- ✅ **Paginação de 5 tarefas por página**
 
 ### 📊 **Recursos Avançados**
 - ✅ **Exportação para CSV**
@@ -171,6 +171,7 @@ vue-laravel-task-manager/
 - **Design Responsivo**: Funciona em mobile e desktop
 - **Modo Escuro**: Suporte completo
 - **Feedback Visual**: Estados de loading e mensagens
+- **Paginação Moderna**: Botões elegantes com gradientes e transições
 - **Acessibilidade**: Labels e navegação adequados
 
 ---
@@ -182,6 +183,8 @@ vue-laravel-task-manager/
 | [**Guia de Instalação**](GUIA_INSTALACAO.md) | Instruções completas de instalação e configuração |
 | [**Funcionalidades**](FUNCIONALIDADES_IMPLEMENTADAS.md) | Detalhes de todas as funcionalidades implementadas |
 | [**Campo de Status**](CAMPO_STATUS_TAREFA.md) | Documentação do campo de seleção de status |
+| [**Paginação**](PAGINACAO_TAREFAS.md) | Implementação da paginação com 5 tarefas por página |
+| [**Melhorias Visuais**](MELHORIAS_VISUAIS_PAGINACAO.md) | Design moderno dos botões de paginação |
 | [**Correção 419**](CORREÇÃO_ERRO_419.md) | Solução para problemas de CSRF token |
 
 ---

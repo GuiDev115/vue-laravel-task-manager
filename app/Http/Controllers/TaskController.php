@@ -276,7 +276,7 @@ class TaskController extends Controller
 
         $tasks = $query->orderBy('due_date', 'asc')
                       ->orderBy('created_at', 'desc')
-                      ->paginate($request->per_page ?? 10);
+                      ->paginate($request->per_page ?? 5); // Padrão de 5 tarefas por página
 
         return Inertia::render('Tasks/Index', [
             'tasks' => $tasks,
