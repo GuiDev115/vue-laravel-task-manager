@@ -20,6 +20,10 @@ class Task extends Model
         'completed' => 'boolean',
     ];
 
+    protected $attributes = [
+        'completed' => false,
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -5,38 +5,85 @@ Um sistema completo de gerenciamento de tarefas desenvolvido com **Laravel 11** 
 ![Laravel](https://img.shields.io/badge/Laravel-11.x-red.svg)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3.x-green.svg)
 ![PHP](https://img.shields.io/badge/PHP-8.2%2B-blue.svg)
+![Inertia.js](https://img.shields.io/badge/Inertia.js-1.x-purple.svg)
+![MySQL](https://img.shields.io/badge/MySQL-8.x-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ---
 
-## ✨ Funcionalidades Principais
+## 🎯 Teste Técnico - Funcionalidades Implementadas
+
+### ✅ **Requisitos Principais Concluídos**
+
+#### **Sistema CRUD de Tarefas**
+- ✅ **Criar, visualizar, editar e excluir tarefas** - Sistema completo de gerenciamento
+- ✅ **Laravel + Vue.js + MySQL** - Stack tecnológica implementada conforme solicitado
+- ✅ **Sistema de autenticação** - Login/logout com controle de acesso por usuário
+- ✅ **Listas de tarefas personalizadas** - Cada usuário acessa apenas suas tarefas
+
+#### **Interface de Usuário**
+- ✅ **Página principal com tarefas pendentes e concluídas** - Dashboard completo
+- ✅ **Adicionar tarefas com título, descrição e data de vencimento** - Apenas administradores
+- ✅ **Marcar como concluída e remover tarefas** - Funcionalidade completa
+- ✅ **Validação de formulário** - Campos obrigatórios e regras de negócio
+- ✅ **Interface responsiva com Vue.js** - Design moderno e interativo
+
+#### **Testes e Documentação**
+- ✅ **Testes automatizados** - Testes unitários e de feature implementados
+- ✅ **Documentação completa** - Guia de instalação e configuração detalhado
+
+### ✅ **Requisitos Adicionais Implementados**
+
+#### **Funcionalidades Avançadas**
+- ✅ **Sistema de busca** - Pesquisa por título e descrição em tempo real
+- ✅ **Paginação** - 5 tarefas por página com navegação intuitiva
+- ✅ **Validação de data** - Data de vencimento deve ser no futuro
+- ✅ **Exportação CSV** - Download de tarefas em formato planilha
+- ✅ **Interface de administração** - Gestão completa de usuários e tarefas
+
+#### **Recursos Laravel Avançados**
+- ✅ **Seeders para dados iniciais** - Usuários e tarefas de exemplo
+- ✅ **Artisan Commands** - Comando para criar usuários administradores
+- ✅ **Events/Listeners/Jobs** - Sistema de eventos para CRUD de tarefas
+- ✅ **Eventos customizados** - TaskCreated, TaskUpdated, TaskDeleted
+
+#### **Arquitetura e Boas Práticas**
+- ✅ **Middleware customizado** - Controle de acesso para administradores
+- ✅ **Form Requests** - Validação organizada e reutilizável
+- ✅ **Resource Controllers** - Estrutura RESTful completa
+- ✅ **Factory e Seeder** - Dados de teste automatizados
+- ✅ **API Routes** - Endpoints para operações AJAX
+
+---
+
+## ✨ Funcionalidades do Sistema
 
 ### 🎯 **Gerenciamento de Tarefas**
-- ✅ **Criação de tarefas** (apenas administradores)
-- ✅ **Edição e exclusão** de tarefas próprias
-- ✅ **Status configurável** (Pendente/Concluída)
-- ✅ **Data de vencimento** com validação
-- ✅ **Atribuição de usuários**
-- ✅ **Descrição detalhada**
+- **Criação de tarefas** (apenas administradores)
+- **Edição e exclusão** de tarefas próprias
+- **Status configurável** (Pendente/Concluída)
+- **Data de vencimento** com validação de data futura
+- **Atribuição de usuários** com controle de permissões
+- **Descrição detalhada** e título obrigatório
 
 ### 🔐 **Sistema de Usuários**
-- ✅ **Autenticação completa** (login/logout/registro)
-- ✅ **Roles de usuário** (Admin/User)
-- ✅ **Controle de permissões**
-- ✅ **Gestão de perfil**
+- **Autenticação completa** (login/logout/registro)
+- **Roles de usuário** (Admin/User)
+- **Controle de permissões** por middleware
+- **Gestão de perfil** com edição de dados
+- **Interface de administração** para gestão de usuários
 
 ### 🔍 **Filtros e Busca**
-- ✅ **Busca por título e descrição**
-- ✅ **Filtros por status** (Todas/Pendentes/Concluídas)
-- ✅ **Ordenação inteligente**
-- ✅ **Paginação de 5 tarefas por página**
+- **Busca em tempo real** por título e descrição
+- **Filtros por status** (Todas/Pendentes/Concluídas)
+- **Ordenação inteligente** por data e prioridade
 
 ### 📊 **Recursos Avançados**
-- ✅ **Exportação para CSV**
-- ✅ **Interface responsiva**
-- ✅ **Modo escuro**
-- ✅ **Validação em tempo real**
-- ✅ **Mensagens de feedback**
+- **Exportação para CSV** com dados completos
+- **Interface responsiva** para todos os dispositivos
+- **Broadcasting em tempo real** com Laravel Echo
+- **Validação robusta** em frontend e backend
+- **Mensagens de feedback** para todas as ações
 
 ---
 
@@ -44,21 +91,25 @@ Um sistema completo de gerenciamento de tarefas desenvolvido com **Laravel 11** 
 
 ### **1. Clonar e Instalar**
 ```bash
-git clone <url-do-repositorio>
+git clone git@github.com:GuiDev115/vue-laravel-task-manager.git
 cd vue-laravel-task-manager
 composer install
 npm install
 ```
 
-### **2. Configurar**
+### **2. Configurar Ambiente**
 ```bash
 cp .env.example .env
 php artisan key:generate
-touch database/database.sqlite
+```
+
+### **3. Configurar Banco de Dados**
+```bash
+# Para MySQL (produção) - configure as credenciais no .env
 php artisan migrate --seed
 ```
 
-### **3. Compilar e Executar**
+### **4. Compilar Assets e Executar**
 ```bash
 npm run build
 php artisan serve
@@ -75,28 +126,36 @@ php artisan serve
 | Tipo | Email | Senha | Permissões |
 |------|-------|-------|------------|
 | **Admin** | `admin@example.com` | `password` | Criar, editar, excluir todas as tarefas |
-| **User** | `user@example.com` | `password` | Editar apenas tarefas próprias |
+| **User** | `maria@example.com` ou `pedro@example.com` | `password` | Visualizar e gerenciar apenas tarefas próprias |
+
+### **Criar Administrador Personalizado**
+```bash
+php artisan admin:create --name="Seu Nome" --email="seu@email.com" --password="suasenha"
+```
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
 ### **Backend**
-- **Laravel 11** - Framework PHP
-- **SQLite/MySQL** - Banco de dados
+- **Laravel 11** - Framework PHP moderno
+- **MySQL/SQLite** - Banco de dados relacional
 - **Eloquent ORM** - Mapeamento objeto-relacional
 - **Laravel Sanctum** - Autenticação API
+- **Laravel Echo** - Broadcasting em tempo real
 
 ### **Frontend**
-- **Vue.js 3** - Framework JavaScript
-- **Inertia.js** - SPA sem API
-- **Tailwind CSS** - Framework CSS
-- **Vite** - Build tool
+- **Vue.js 3** - Framework JavaScript reativo
+- **Inertia.js** - SPA sem complexidade de API
+- **Tailwind CSS** - Framework CSS utilitário
+- **Vite** - Build tool rápido
+- **TypeScript** - Tipagem estática
 
-### **Ferramentas**
+### **Ferramentas de Desenvolvimento**
 - **Composer** - Gerenciador de dependências PHP
 - **NPM** - Gerenciador de dependências JavaScript
-- **PHP CS Fixer** - Padronização de código
+- **PHPUnit** - Testes automatizados
+- **Laravel Telescope** - Debug e monitoramento
 
 ---
 
@@ -104,211 +163,127 @@ php artisan serve
 
 ```
 vue-laravel-task-manager/
-├── 📂 app/
-│   ├── 📂 Http/Controllers/     # Controllers da aplicação
-│   └── 📂 Models/               # Models Eloquent
-├── 📂 database/
-│   ├── 📂 migrations/           # Migrações do banco
-│   └── 📂 seeders/              # Seeders de dados
-├── 📂 resources/
-│   ├── 📂 js/
-│   │   └── 📂 Pages/           # Componentes Vue.js
-│   └── 📂 views/               # Templates Blade
-├── 📂 routes/
-│   ├── 📄 web.php              # Rotas web
-│   └── 📄 api.php              # Rotas API
-├── 📂 public/                  # Arquivos públicos
-└── 📄 .env                     # Configurações
+├── app/
+│   ├── Console/Commands/          # Comandos Artisan customizados
+│   ├── Events/                    # Eventos do sistema
+│   ├── Http/
+│   │   ├── Controllers/           # Controladores da aplicação
+│   │   ├── Middleware/            # Middleware customizado
+│   │   └── Requests/              # Form Requests para validação
+│   ├── Models/                    # Modelos Eloquent
+│   └── Observers/                 # Observers para monitoramento
+├── database/
+│   ├── factories/                 # Factories para testes
+│   ├── migrations/                # Migrações do banco
+│   └── seeders/                   # Seeders para dados iniciais
+├── resources/
+│   ├── js/
+│   │   ├── Components/            # Componentes Vue reutilizáveis
+│   │   ├── Layouts/               # Layouts da aplicação
+│   │   ├── Pages/                 # Páginas Vue (Inertia)
+│   │   └── types/                 # Tipos TypeScript
+│   └── css/                       # Estilos CSS
+├── routes/
+│   ├── api.php                    # Rotas da API
+│   ├── web.php                    # Rotas web
+│   └── auth.php                   # Rotas de autenticação
+└── tests/                         # Testes automatizados
 ```
-
----
-
-## 🎯 Como Usar
-
-### **Para Administradores:**
-
-1. **Criar Tarefa**
-   - Clique em "Nova Tarefa"
-   - Preencha título (obrigatório)
-   - Adicione descrição e data de vencimento
-   - Selecione usuário para atribuir
-   - Defina status (Pendente/Concluída)
-
-2. **Gerenciar Todas as Tarefas**
-   - Visualizar tarefas de todos os usuários
-   - Editar qualquer tarefa
-   - Excluir tarefas quando necessário
-
-### **Para Usuários:**
-
-1. **Visualizar Tarefas**
-   - Ver apenas tarefas atribuídas a você
-   - Filtrar por status ou buscar
-
-2. **Gerenciar Suas Tarefas**
-   - Marcar como concluída/pendente
-   - Editar informações
-   - Excluir se necessário
-
----
-
-## 📋 Funcionalidades Detalhadas
-
-### **✅ Validações Implementadas**
-- **Título**: Obrigatório, máximo 255 caracteres
-- **Descrição**: Opcional, máximo 1000 caracteres
-- **Data de vencimento**: Deve ser hoje ou futura
-- **Usuário**: Obrigatório para administradores
-- **Permissões**: Verificação em frontend e backend
-
-### **🔒 Segurança**
-- **CSRF Protection**: Tokens em todas as requisições
-- **Autenticação**: Middleware em rotas protegidas
-- **Autorização**: Controle de acesso por role
-- **Validação**: Dupla validação (client/server)
-
-### **🎨 Interface**
-- **Design Responsivo**: Funciona em mobile e desktop
-- **Modo Escuro**: Suporte completo
-- **Feedback Visual**: Estados de loading e mensagens
-- **Paginação Moderna**: Botões elegantes com gradientes e transições
-- **Acessibilidade**: Labels e navegação adequados
-
----
-
-## 📚 Documentação
-
-| Documento | Descrição |
-|-----------|-----------|
-| [**Guia de Instalação**](GUIA_INSTALACAO.md) | Instruções completas de instalação e configuração |
-| [**Funcionalidades**](FUNCIONALIDADES_IMPLEMENTADAS.md) | Detalhes de todas as funcionalidades implementadas |
-| [**Campo de Status**](CAMPO_STATUS_TAREFA.md) | Documentação do campo de seleção de status |
-| [**Paginação**](PAGINACAO_TAREFAS.md) | Implementação da paginação com 5 tarefas por página |
-| [**Melhorias Visuais**](MELHORIAS_VISUAIS_PAGINACAO.md) | Design moderno dos botões de paginação |
-| [**Correção 419**](CORREÇÃO_ERRO_419.md) | Solução para problemas de CSRF token |
 
 ---
 
 ## 🧪 Testes
 
+### **Executar Testes**
 ```bash
-# Executar testes
+# Todos os testes
 php artisan test
 
-# Executar com cobertura
-php artisan test --coverage
+# Testes específicos
+php artisan test --filter TaskTest
 
-# Dados de teste
-php artisan db:seed
+# Testes com cobertura
+php artisan test --coverage
 ```
+
+### **Tipos de Testes Implementados**
+- **Testes de Feature** - Funcionalidades completas
+- **Testes de Unit** - Componentes isolados
+- **Testes de API** - Endpoints da aplicação
+- **Testes de Middleware** - Controle de acesso
 
 ---
 
-## 🔧 Comandos Úteis
+## 🚀 Comandos Artisan Customizados
 
-### **Desenvolvimento**
+### **Criar Usuário Administrador**
 ```bash
-# Servidor de desenvolvimento
-php artisan serve
+php artisan admin:create
+```
 
-# Watch de assets
-npm run dev
-
-# Limpar caches
+### **Limpar Cache Completo**
+```bash
 php artisan optimize:clear
 ```
 
-### **Produção**
+### **Migrar e Popular Banco**
 ```bash
-# Compilar assets
-npm run build
-
-# Otimizar Laravel
-php artisan optimize
+php artisan migrate:fresh --seed
 ```
 
 ---
 
-## 🤝 Contribuição
+## 📊 Eventos e Listeners
 
-1. **Fork** o projeto
-2. **Crie** uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. **Push** para a branch (`git push origin feature/AmazingFeature`)
-5. **Abra** um Pull Request
+### **Eventos Implementados**
+- `TaskCreated` - Disparado ao criar uma tarefa
+- `TaskUpdated` - Disparado ao atualizar uma tarefa
+- `TaskDeleted` - Disparado ao excluir uma tarefa
 
----
-
-## 📝 Licença
-
-Este projeto está sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+### **Observers**
+- `TaskObserver` - Monitora mudanças em tarefas automaticamente
 
 ---
 
-## 📞 Suporte
+## 🔒 Segurança
 
-- **Documentação**: Consulte os arquivos de documentação inclusos
-- **Issues**: Reporte problemas nas Issues do GitHub
-- **Logs**: Verifique `storage/logs/laravel.log` para debugging
-
----
-
-## 🎯 Roadmap
-
-- [ ] **Notificações** por email
-- [ ] **Upload** de anexos em tarefas
-- [ ] **Comentários** em tarefas
-- [ ] **Subtarefas**
-- [ ] **Dashboard** com gráficos
-- [ ] **API REST** completa
-- [ ] **App Mobile** (React Native)
+### **Medidas Implementadas**
+- **Autenticação obrigatória** para todas as rotas protegidas
+- **Autorização por roles** (Admin/User)
+- **Validação de entrada** em todos os formulários
+- **Proteção CSRF** em todas as requisições
+- **Sanitização de dados** antes do armazenamento
 
 ---
 
-**Desenvolvido com ❤️ usando Laravel e Vue.js**
+## 🌐 API Endpoints
+
+### **Tarefas**
+```
+GET    /api/tasks              # Listar tarefas do usuário
+POST   /api/tasks              # Criar nova tarefa (admin)
+PUT    /api/tasks/{id}          # Atualizar tarefa
+DELETE /api/tasks/{id}          # Excluir tarefa
+```
+
+### **Busca e Filtros**
+```
+GET    /api/tasks/search?q=termo           # Buscar tarefas
+GET    /api/tasks?status=completed         # Filtrar por status
+GET    /api/tasks?page=2                   # Paginação
+```
 
 ---
 
-**Versão**: 1.0  
-**Última Atualização**: 24 de julho de 2025
+## 📈 Performance
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### **Otimizações Implementadas**
+- **Eager Loading** para relacionamentos
+- **Paginação** para grandes datasets
+- **Cache de queries** frequentes
+- **Compressão de assets** com Vite
+- **Lazy Loading** de componentes Vue
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+**⭐ Se este projeto foi útil, considere dar uma estrela no repositório!**

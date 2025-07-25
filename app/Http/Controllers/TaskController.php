@@ -77,8 +77,12 @@ class TaskController extends Controller
             'user_id.exists' => 'O usuário selecionado não existe',
         ]);
 
+        // Garantir que completed seja definido como false por padrão
+        $validated['completed'] = false;
+
         $task = Task::create($validated);
         $task->load('user');
+        $task->refresh(); // Garante que os valores padrão sejam carregados
 
         return response()->json($task, 201);
     }
