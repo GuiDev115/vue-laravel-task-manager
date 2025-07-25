@@ -37,6 +37,7 @@ const form = ref({
     description: '',
     due_date: '',
     user_id: '',
+    completed: false,
 });
 
 // Form errors
@@ -45,6 +46,7 @@ const formErrors = ref({
     description: '',
     due_date: '',
     user_id: '',
+    completed: '',
 });
 
 // Estado para mensagens
@@ -71,6 +73,7 @@ const validateForm = () => {
         description: '',
         due_date: '',
         user_id: '',
+        completed: '',
     };
     
     let hasErrors = false;
@@ -118,6 +121,7 @@ const clearFormErrors = () => {
         description: '',
         due_date: '',
         user_id: '',
+        completed: '',
     };
 };
 
@@ -244,6 +248,7 @@ const openModal = (task = null) => {
             description: task.description || '',
             due_date: task.due_date || '',
             user_id: task.user_id || '',
+            completed: task.completed || false,
         };
     } else {
         // Ao criar nova tarefa
@@ -252,6 +257,7 @@ const openModal = (task = null) => {
             description: '',
             due_date: '',
             user_id: isAdmin.value ? '' : currentUser.value.id,
+            completed: false,
         };
     }
     showModal.value = true;
@@ -266,6 +272,7 @@ const closeModal = () => {
         description: '',
         due_date: '',
         user_id: '',
+        completed: false,
     };
 };
 
@@ -805,6 +812,39 @@ onMounted(() => {
                                     </select>
                                     <p v-if="formErrors.user_id" class="mt-1 text-sm text-red-600 dark:text-red-400">
                                         {{ formErrors.user_id }}
+                                    </p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Status da Tarefa
+                                    </label>
+                                    <div class="mt-2 space-y-2">
+                                        <label class="inline-flex items-center">
+                                            <input
+                                                type="radio"
+                                                v-model="form.completed"
+                                                :value="false"
+                                                class="text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                                            >
+                                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                                📝 Pendente
+                                            </span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input
+                                                type="radio"
+                                                v-model="form.completed"
+                                                :value="true"
+                                                class="text-green-600 border-gray-300 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700"
+                                            >
+                                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                                ✅ Concluída
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <p v-if="formErrors.completed" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.completed }}
                                     </p>
                                 </div>
                             </div>
