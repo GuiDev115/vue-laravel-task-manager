@@ -45,6 +45,13 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Tarefas
                                 </NavLink>
+                                <NavLink
+                                    v-if="$page.props.auth.user.role === 'admin'"
+                                    :href="route('admin.users.index')"
+                                    :active="route().current('admin.*')"
+                                >
+                                    Administração
+                                </NavLink>
                             </div>
                         </div>
 
@@ -157,6 +164,13 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('tasks.*')"
                         >
                             Tarefas
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            v-if="$page.props.auth.user.role === 'admin'"
+                            :href="route('admin.users.index')"
+                            :active="route().current('admin.*')"
+                        >
+                            Administração
                         </ResponsiveNavLink>
                     </div>
 
