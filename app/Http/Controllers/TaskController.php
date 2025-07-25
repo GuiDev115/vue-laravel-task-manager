@@ -57,18 +57,32 @@ class TaskController extends Controller
         
         // Apenas admins podem criar tarefas
         if (!$user->isAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Apenas administradores podem criar novas tarefas'], 403);
         }
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:1000',
             'due_date' => 'nullable|date|after_or_equal:today',
             'user_id' => 'required|exists:users,id',
+        ], [
+            'title.required' => 'O título é obrigatório',
+            'title.string' => 'O título deve ser um texto',
+            'title.max' => 'O título deve ter no máximo 255 caracteres',
+            'description.string' => 'A descrição deve ser um texto',
+            'description.max' => 'A descrição deve ter no máximo 1000 caracteres',
+            'due_date.date' => 'A data de vencimento deve ser uma data válida',
+            'due_date.after_or_equal' => 'A data de vencimento deve ser hoje ou uma data futura',
+            'user_id.required' => 'Selecione um usuário para atribuir a tarefa',
+            'user_id.exists' => 'O usuário selecionado não existe',
         ]);
+
+        // Garantir que completed seja definido como false por padrão
+        $validated['completed'] = false;
 
         $task = Task::create($validated);
         $task->load('user');
+        $task->refresh(); // Garante que os valores padrão sejam carregados
 
         return response()->json($task, 201);
     }
@@ -98,14 +112,25 @@ class TaskController extends Controller
         
         // Verificar permissões
         if (!$user->isAdmin() && $task->user_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Você não tem permissão para editar esta tarefa'], 403);
         }
 
         $rules = [
             'title' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|nullable|string',
+            'description' => 'sometimes|nullable|string|max:1000',
             'due_date' => 'sometimes|nullable|date|after_or_equal:today',
             'completed' => 'sometimes|boolean',
+        ];
+
+        $messages = [
+            'title.required' => 'O título é obrigatório',
+            'title.string' => 'O título deve ser um texto',
+            'title.max' => 'O título deve ter no máximo 255 caracteres',
+            'description.string' => 'A descrição deve ser um texto',
+            'description.max' => 'A descrição deve ter no máximo 1000 caracteres',
+            'due_date.date' => 'A data de vencimento deve ser uma data válida',
+            'due_date.after_or_equal' => 'A data de vencimento deve ser hoje ou uma data futura',
+            'user_id.exists' => 'O usuário selecionado não existe',
         ];
 
         // Apenas admins podem alterar o usuário da tarefa
@@ -113,7 +138,7 @@ class TaskController extends Controller
             $rules['user_id'] = 'sometimes|exists:users,id';
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, $messages);
 
         $task->update($validated);
         $task->load('user');
@@ -128,14 +153,27 @@ class TaskController extends Controller
     {
         $user = Auth::user();
         
+        // Log para debug
+        \Log::info('Tentativa de exclusão de tarefa', [
+            'task_id' => $task->id,
+            'user_id' => $user ? $user->id : 'null',
+            'user_role' => $user ? $user->role : 'null',
+            'task_user_id' => $task->user_id
+        ]);
+        
+        // Verificar se o usuário está autenticado
+        if (!$user) {
+            return response()->json(['error' => 'Usuário não autenticado'], 401);
+        }
+        
         // Verificar permissões
         if (!$user->isAdmin() && $task->user_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Você não tem permissão para excluir esta tarefa'], 403);
         }
 
         $task->delete();
 
-        return response()->json(['message' => 'Task deleted successfully']);
+        return response()->json(['message' => 'Tarefa excluída com sucesso']);
     }
 
     /**
@@ -147,7 +185,7 @@ class TaskController extends Controller
         
         // Verificar permissões
         if (!$user->isAdmin() && $task->user_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Você não tem permissão para alterar esta tarefa'], 403);
         }
 
         $task->completed = !$task->completed;
@@ -242,7 +280,7 @@ class TaskController extends Controller
 
         $tasks = $query->orderBy('due_date', 'asc')
                       ->orderBy('created_at', 'desc')
-                      ->paginate($request->per_page ?? 10);
+                      ->paginate($request->per_page ?? 5); // Padrão de 5 tarefas por página
 
         return Inertia::render('Tasks/Index', [
             'tasks' => $tasks,

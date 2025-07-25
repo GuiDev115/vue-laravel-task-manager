@@ -40,10 +40,17 @@ const showingNavigationDropdown = ref(false);
                                     Dashboard
                                 </NavLink>
                                 <NavLink
-                                    :href="route('tasks.page')"
+                                    :href="route('tasks.index')"
                                     :active="route().current('tasks.*')"
                                 >
                                     Tarefas
+                                </NavLink>
+                                <NavLink
+                                    v-if="$page.props.auth.user.role === 'admin'"
+                                    :href="route('admin.users.index')"
+                                    :active="route().current('admin.*')"
+                                >
+                                    Administração
                                 </NavLink>
                             </div>
                         </div>
@@ -153,10 +160,17 @@ const showingNavigationDropdown = ref(false);
                             Dashboard
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
-                            :href="route('tasks.page')"
+                            :href="route('tasks.index')"
                             :active="route().current('tasks.*')"
                         >
                             Tarefas
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            v-if="$page.props.auth.user.role === 'admin'"
+                            :href="route('admin.users.index')"
+                            :active="route().current('admin.*')"
+                        >
+                            Administração
                         </ResponsiveNavLink>
                     </div>
 

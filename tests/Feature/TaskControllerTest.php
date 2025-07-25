@@ -23,6 +23,9 @@ class TaskControllerTest extends TestCase
         $admin = User::where('role', 'admin')->first();
         $user = User::where('role', 'user')->first();
 
+        $this->assertNotNull($admin, 'Admin user not found');
+        $this->assertNotNull($user, 'Regular user not found');
+
         $response = $this->actingAs($admin)
             ->postJson('/api/tasks', [
                 'title' => 'Nova Tarefa',
@@ -40,11 +43,18 @@ class TaskControllerTest extends TestCase
                     'completed',
                     'user_id',
                     'user'
+                ])
+                ->assertJson([
+                    'title' => 'Nova Tarefa',
+                    'description' => 'Descrição da tarefa',
+                    'completed' => false,
+                    'user_id' => $user->id,
                 ]);
 
         $this->assertDatabaseHas('tasks', [
             'title' => 'Nova Tarefa',
             'user_id' => $user->id,
+            'completed' => false,
         ]);
     }
 

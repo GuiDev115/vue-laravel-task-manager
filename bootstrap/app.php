@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        // Register admin middleware
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        ]);
+
         // HTTPS middleware temporarily disabled to fix redirect loop
         // $middleware->web(\App\Http\Middleware\ForceHttps::class);
     })

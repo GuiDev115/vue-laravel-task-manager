@@ -21,8 +21,10 @@ const currentUser = ref(props.currentUser || {});
 const pagination = ref({
     current_page: props.tasks?.current_page || 1,
     last_page: props.tasks?.last_page || 1,
-    per_page: props.tasks?.per_page || 10,
+    per_page: 5, // Fixado em 5 tarefas por página
     total: props.tasks?.total || 0,
+    from: props.tasks?.from || 0,
+    to: props.tasks?.to || 0,
 });
 
 // Filtros
@@ -37,6 +39,23 @@ const form = ref({
     description: '',
     due_date: '',
     user_id: '',
+    completed: false,
+});
+
+// Form errors
+const formErrors = ref({
+    title: '',
+    description: '',
+    due_date: '',
+    user_id: '',
+    completed: '',
+});
+
+// Estado para mensagens
+const message = ref({
+    type: '',
+    text: '',
+    show: false,
 });
 
 // Computed
@@ -44,12 +63,158 @@ const isAdmin = computed(() => currentUser.value?.role === 'admin');
 const filteredTasks = computed(() => {
     return tasks.value || [];
 });
+const minDate = computed(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+});
+
+// Métodos para validação
+const validateForm = () => {
+    const errors = {
+        title: '',
+        description: '',
+        due_date: '',
+        user_id: '',
+        completed: '',
+    };
+    
+    let hasErrors = false;
+    
+    // Validar título obrigatório
+    if (!form.value.title || form.value.title.trim() === '') {
+        errors.title = 'O título é obrigatório';
+        hasErrors = true;
+    } else if (form.value.title.length > 255) {
+        errors.title = 'O título deve ter no máximo 255 caracteres';
+        hasErrors = true;
+    }
+    
+    // Validar descrição (opcional, mas se preenchida deve ter limite)
+    if (form.value.description && form.value.description.length > 1000) {
+        errors.description = 'A descrição deve ter no máximo 1000 caracteres';
+        hasErrors = true;
+    }
+    
+    // Validar usuário obrigatório para admins
+    if (isAdmin.value && (!form.value.user_id || form.value.user_id === '')) {
+        errors.user_id = 'Selecione um usuário para atribuir a tarefa';
+        hasErrors = true;
+    }
+    
+    // Validar data de vencimento
+    if (form.value.due_date) {
+        const selectedDate = new Date(form.value.due_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (selectedDate < today) {
+            errors.due_date = 'A data de vencimento deve ser hoje ou uma data futura';
+            hasErrors = true;
+        }
+    }
+    
+    formErrors.value = errors;
+    return !hasErrors;
+};
+
+const clearFormErrors = () => {
+    formErrors.value = {
+        title: '',
+        description: '',
+        due_date: '',
+        user_id: '',
+        completed: '',
+    };
+};
+
+// Validação em tempo real
+const validateField = (field) => {
+    switch (field) {
+        case 'title':
+            if (!form.value.title || form.value.title.trim() === '') {
+                formErrors.value.title = 'O título é obrigatório';
+            } else if (form.value.title.length > 255) {
+                formErrors.value.title = 'O título deve ter no máximo 255 caracteres';
+            } else {
+                formErrors.value.title = '';
+            }
+            break;
+        case 'description':
+            if (form.value.description && form.value.description.length > 1000) {
+                formErrors.value.description = 'A descrição deve ter no máximo 1000 caracteres';
+            } else {
+                formErrors.value.description = '';
+            }
+            break;
+        case 'due_date':
+            if (form.value.due_date) {
+                const selectedDate = new Date(form.value.due_date);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                if (selectedDate < today) {
+                    formErrors.value.due_date = 'A data de vencimento deve ser hoje ou uma data futura';
+                } else {
+                    formErrors.value.due_date = '';
+                }
+            } else {
+                formErrors.value.due_date = '';
+            }
+            break;
+        case 'user_id':
+            if (isAdmin.value && (!form.value.user_id || form.value.user_id === '')) {
+                formErrors.value.user_id = 'Selecione um usuário para atribuir a tarefa';
+            } else {
+                formErrors.value.user_id = '';
+            }
+            break;
+    }
+};
+
+// Função para obter o token CSRF de forma robusta
+const getCsrfToken = () => {
+    return document.head.querySelector('meta[name="csrf-token"]')?.content || 
+           document.querySelector('input[name="_token"]')?.value ||
+           window.Laravel?.csrfToken ||
+           window.axios.defaults.headers.common['X-CSRF-TOKEN'];
+};
+
+// Função para criar configuração padrão das requisições
+const getRequestConfig = () => {
+    const csrfToken = getCsrfToken();
+    return {
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        withCredentials: true
+    };
+};
+
+const showMessage = (type, text) => {
+    message.value = {
+        type,
+        text,
+        show: true,
+    };
+    
+    // Auto-hide após 5 segundos
+    setTimeout(() => {
+        message.value.show = false;
+    }, 5000);
+};
 
 // Métodos
-const loadTasks = async () => {
+const loadTasks = async (page = 1) => {
     loading.value = true;
     try {
-        const params = {};
+        const params = {
+            page: page,
+            per_page: 5 // Sempre buscar 5 tarefas por página
+        };
+        
         if (filters.value.status !== 'all') {
             params.status = filters.value.status;
         }
@@ -64,8 +229,10 @@ const loadTasks = async () => {
                 pagination.value = {
                     current_page: page.props.tasks?.current_page || 1,
                     last_page: page.props.tasks?.last_page || 1,
-                    per_page: page.props.tasks?.per_page || 10,
+                    per_page: 5,
                     total: page.props.tasks?.total || 0,
+                    from: page.props.tasks?.from || 0,
+                    to: page.props.tasks?.to || 0,
                 };
             },
             onFinish: () => {
@@ -78,16 +245,84 @@ const loadTasks = async () => {
     }
 };
 
+// Métodos de navegação de paginação
+const goToPage = (page) => {
+    if (page >= 1 && page <= pagination.value.last_page && page !== pagination.value.current_page) {
+        loadTasks(page);
+    }
+};
+
+const nextPage = () => {
+    if (pagination.value.current_page < pagination.value.last_page) {
+        goToPage(pagination.value.current_page + 1);
+    }
+};
+
+const previousPage = () => {
+    if (pagination.value.current_page > 1) {
+        goToPage(pagination.value.current_page - 1);
+    }
+};
+
+const firstPage = () => {
+    if (pagination.value.current_page !== 1) {
+        goToPage(1);
+    }
+};
+
+const lastPage = () => {
+    if (pagination.value.current_page !== pagination.value.last_page) {
+        goToPage(pagination.value.last_page);
+    }
+};
+
+// Computed para páginas visíveis na navegação
+const visiblePages = computed(() => {
+    const current = pagination.value.current_page;
+    const last = pagination.value.last_page;
+    const delta = 2; // Mostrar 2 páginas antes e depois da atual
+    
+    let start = Math.max(1, current - delta);
+    let end = Math.min(last, current + delta);
+    
+    // Ajustar para mostrar sempre 5 páginas quando possível
+    if (end - start < 4) {
+        if (start === 1) {
+            end = Math.min(last, start + 4);
+        } else if (end === last) {
+            start = Math.max(1, end - 4);
+        }
+    }
+    
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+        pages.push(i);
+    }
+    
+    return pages;
+});
+
 const openModal = (task = null) => {
     editingTask.value = task;
+    clearFormErrors();
+    
     if (task) {
-        form.value = { ...task };
+        // Ao editar, preencher o formulário com os dados da tarefa
+        form.value = {
+            title: task.title || '',
+            description: task.description || '',
+            due_date: task.due_date || '',
+            user_id: task.user_id || '',
+            completed: task.completed || false,
+        };
     } else {
+        // Ao criar nova tarefa
         form.value = {
             title: '',
             description: '',
             due_date: '',
             user_id: isAdmin.value ? '' : currentUser.value.id,
+            completed: false,
         };
     }
     showModal.value = true;
@@ -96,44 +331,205 @@ const openModal = (task = null) => {
 const closeModal = () => {
     showModal.value = false;
     editingTask.value = null;
+    clearFormErrors();
     form.value = {
         title: '',
         description: '',
         due_date: '',
         user_id: '',
+        completed: false,
     };
 };
 
 const saveTask = async () => {
+    // Validar formulário antes de enviar
+    if (!validateForm()) {
+        showMessage('error', 'Por favor, corrija os erros no formulário');
+        return;
+    }
+    
+    // Verificar permissão para criação (apenas admins podem criar)
+    if (!editingTask.value && !isAdmin.value) {
+        showMessage('error', 'Apenas administradores podem criar novas tarefas');
+        return;
+    }
+    
+    // Debug: verificar se o token CSRF está disponível
+    const debugCsrfToken = getCsrfToken();
+    if (!debugCsrfToken) {
+        console.error('CSRF token não encontrado');
+        showMessage('error', 'Erro de segurança. Recarregue a página e tente novamente.');
+        return;
+    }
+    
     try {
+        loading.value = true;
+        
+        const config = getRequestConfig();
+        
         if (editingTask.value) {
-            await axios.put(`/api/tasks/${editingTask.value.id}`, form.value);
+            // Editar tarefa existente
+            await axios.put(`/api/tasks/${editingTask.value.id}`, form.value, config);
+            showMessage('success', 'Tarefa atualizada com sucesso!');
         } else {
-            await axios.post('/api/tasks', form.value);
-        }
-        closeModal();
-        loadTasks();
+            // Criar nova tarefa
+            await axios.post('/api/tasks', form.value, config);
+            showMessage('success', 'Tarefa criada com sucesso!');
+        }                        closeModal();
+                        // Recarregar a página atual para manter a paginação
+                        loadTasks(pagination.value.current_page);
     } catch (error) {
         console.error('Erro ao salvar tarefa:', error);
+        
+        // Tratar erros de validação do backend
+        if (error.response) {
+            switch (error.response.status) {
+                case 401:
+                    showMessage('error', 'Sessão expirada. Faça login novamente.');
+                    break;
+                case 403:
+                    showMessage('error', 'Você não tem permissão para realizar esta ação');
+                    break;
+                case 419:
+                    showMessage('error', 'Sessão expirada. Recarregue a página e tente novamente.');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                    break;
+                case 422:
+                    // Erros de validação
+                    if (error.response.data && error.response.data.errors) {
+                        const backendErrors = error.response.data.errors;
+                        Object.keys(backendErrors).forEach(key => {
+                            if (formErrors.value.hasOwnProperty(key)) {
+                                formErrors.value[key] = backendErrors[key][0];
+                            }
+                        });
+                        showMessage('error', 'Verifique os campos e tente novamente');
+                    } else {
+                        showMessage('error', 'Dados inválidos');
+                    }
+                    break;
+                default:
+                    showMessage('error', 'Erro ao salvar tarefa. Tente novamente.');
+            }
+        } else {
+            showMessage('error', 'Erro de conexão. Verifique sua internet.');
+        }
+    } finally {
+        loading.value = false;
     }
 };
 
 const toggleTask = async (task) => {
+    const previousStatus = task.completed;
+    const actionText = task.completed ? 'pendente' : 'concluída';
+    
     try {
-        await axios.patch(`/api/tasks/${task.id}/toggle`);
-        loadTasks();
+        // Obter token CSRF de forma mais robusta
+        const csrfToken = getCsrfToken();
+        
+        await axios.patch(`/api/tasks/${task.id}/toggle`, {}, {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            withCredentials: true
+        });
+        
+        // Atualizar localmente o status da tarefa
+        const index = tasks.value.findIndex(t => t.id === task.id);
+        if (index !== -1) {
+            tasks.value[index].completed = !tasks.value[index].completed;
+        }                        showMessage('success', `Tarefa "${task.title}" marcada como ${actionText}!`);
+                        // Recarregar a página atual para manter a paginação
+                        loadTasks(pagination.value.current_page);
     } catch (error) {
         console.error('Erro ao alterar status da tarefa:', error);
+        
+        if (error.response) {
+            switch (error.response.status) {
+                case 401:
+                    showMessage('error', 'Sessão expirada. Faça login novamente.');
+                    break;
+                case 403:
+                    showMessage('error', 'Você não tem permissão para alterar esta tarefa');
+                    break;
+                case 419:
+                    showMessage('error', 'Sessão expirada. Recarregue a página e tente novamente.');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                    break;
+                default:
+                    showMessage('error', 'Erro ao alterar status da tarefa');
+            }
+        } else {
+            showMessage('error', 'Erro de conexão. Verifique sua internet.');
+        }
     }
 };
 
 const deleteTask = async (task) => {
-    if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+    if (confirm(`Tem certeza que deseja excluir a tarefa "${task.title}"? Esta ação não pode ser desfeita.`)) {
         try {
-            await axios.delete(`/api/tasks/${task.id}`);
-            loadTasks();
+            loading.value = true;
+            
+            // Obter token CSRF de forma mais robusta
+            const csrfToken = getCsrfToken();
+            
+            // Verificar se a requisição tem as credenciais corretas
+            const response = await axios.delete(`/api/tasks/${task.id}`, {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                withCredentials: true
+            });
+            
+            // Remover localmente da lista
+            tasks.value = tasks.value.filter(t => t.id !== task.id);                        showMessage('success', `Tarefa "${task.title}" excluída com sucesso!`);
+                        // Se não há mais tarefas na página atual e não é a primeira página, volta uma página
+                        const currentPage = pagination.value.current_page;
+                        const remainingTasks = tasks.value.length - 1;
+                        
+                        if (remainingTasks === 0 && currentPage > 1) {
+                            loadTasks(currentPage - 1);
+                        } else {
+                            loadTasks(currentPage);
+                        }
         } catch (error) {
             console.error('Erro ao excluir tarefa:', error);
+            
+            if (error.response) {
+                switch (error.response.status) {
+                    case 401:
+                        showMessage('error', 'Sessão expirada. Faça login novamente.');
+                        // Opcional: redirecionar para login
+                        // window.location.href = '/login';
+                        break;
+                    case 403:
+                        showMessage('error', 'Você não tem permissão para excluir esta tarefa');
+                        break;
+                    case 404:
+                        showMessage('error', 'Tarefa não encontrada');
+                        break;
+                    case 419:
+                        showMessage('error', 'Sessão expirada. Recarregue a página e tente novamente.');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                        break;
+                    default:
+                        showMessage('error', 'Erro ao excluir tarefa');
+                }
+            } else {
+                showMessage('error', 'Erro de conexão. Verifique sua internet.');
+            }
+        } finally {
+            loading.value = false;
         }
     }
 };
@@ -176,7 +572,44 @@ onMounted(() => {
         </template>
 
         <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
+                
+                <!-- Mensagens de Feedback -->
+                <div 
+                    v-if="message.show" 
+                    class="rounded-md p-4 transition-all duration-300"
+                    :class="{
+                        'bg-green-50 border border-green-200 text-green-800 dark:bg-green-800/20 dark:border-green-600 dark:text-green-200': message.type === 'success',
+                        'bg-red-50 border border-red-200 text-red-800 dark:bg-red-800/20 dark:border-red-600 dark:text-red-200': message.type === 'error'
+                    }"
+                >
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg v-if="message.type === 'success'" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <svg v-if="message.type === 'error'" class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium">{{ message.text }}</p>
+                        </div>
+                        <div class="ml-auto pl-3">
+                            <button @click="message.show = false" class="inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                                :class="{
+                                    'text-green-500 hover:bg-green-100 focus:ring-green-600 focus:ring-offset-green-50 dark:hover:bg-green-800/30': message.type === 'success',
+                                    'text-red-500 hover:bg-red-100 focus:ring-red-600 focus:ring-offset-red-50 dark:hover:bg-red-800/30': message.type === 'error'
+                                }"
+                            >
+                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Filtros -->
                 <div class="mb-6 overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800">
                     <div class="p-6">
@@ -225,7 +658,7 @@ onMounted(() => {
                             </svg>
                             <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Nenhuma tarefa encontrada</h3>
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                {{ isAdmin ? 'Comece criando uma nova tarefa.' : 'Não há tarefas atribuídas a você.' }}
+                                {{ isAdmin ? 'Comece criando uma nova tarefa.' : 'Não há tarefas atribuídas a você. Entre em contato com um administrador para solicitar novas tarefas.' }}
                             </p>
                         </div>
 
@@ -318,6 +751,145 @@ onMounted(() => {
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Paginação -->
+                        <div v-if="pagination.total > 0" class="mt-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-6 py-4">
+                            <!-- Informações da Paginação -->
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center space-x-2">
+                                    <div class="bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
+                                        <span class="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                            {{ pagination.from }}-{{ pagination.to }}
+                                        </span>
+                                    </div>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">de</span>
+                                    <div class="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                                        <span class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                            {{ pagination.total }} tarefa{{ pagination.total !== 1 ? 's' : '' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">Página</span>
+                                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-3 py-1 rounded-full">
+                                        <span class="text-sm font-medium text-white">
+                                            {{ pagination.current_page }}
+                                        </span>
+                                    </div>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">de {{ pagination.last_page }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Controles de Navegação -->
+                            <div class="flex items-center justify-center">
+                                <nav class="inline-flex rounded-lg shadow-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                    <!-- Primeira Página -->
+                                    <button
+                                        @click="firstPage"
+                                        :disabled="pagination.current_page === 1"
+                                        :class="[
+                                            'relative inline-flex items-center px-3 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 transition-all duration-200',
+                                            pagination.current_page === 1 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                        title="Primeira página"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+
+                                    <!-- Página Anterior -->
+                                    <button
+                                        @click="previousPage"
+                                        :disabled="pagination.current_page === 1"
+                                        :class="[
+                                            'relative inline-flex items-center px-4 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 transition-all duration-200',
+                                            pagination.current_page === 1 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                    >
+                                        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                        <span class="hidden sm:inline"></span>
+                                        <span class="sm:hidden">Ant</span>
+                                    </button>
+
+                                    <!-- Números das Páginas -->
+                                    <div class="hidden sm:flex">
+                                        <template v-for="page in visiblePages" :key="page">
+                                            <button
+                                                @click="goToPage(page)"
+                                                :class="[
+                                                    'relative inline-flex items-center px-4 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 last:border-r-0 transition-all duration-200 min-w-[2.5rem] justify-center',
+                                                    page === pagination.current_page
+                                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg transform scale-105 z-10 font-semibold'
+                                                        : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                                ]"
+                                            >
+                                                {{ page }}
+                                            </button>
+                                        </template>
+                                    </div>
+
+                                    <!-- Números das Páginas (Mobile) -->
+                                    <div class="sm:hidden relative">
+                                        <select
+                                            :value="pagination.current_page"
+                                            @change="goToPage(parseInt($event.target.value))"
+                                            class="appearance-none bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 min-w-[4rem] text-center"
+                                        >
+                                            <option v-for="page in pagination.last_page" :key="page" :value="page">
+                                                {{ page }}
+                                            </option>
+                                        </select>
+                                        <div class="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+
+                                    <!-- Próxima Página -->
+                                    <button
+                                        @click="nextPage"
+                                        :disabled="pagination.current_page === pagination.last_page"
+                                        :class="[
+                                            'relative inline-flex items-center px-4 py-2 text-sm font-medium border-r border-gray-200 dark:border-gray-700 transition-all duration-200',
+                                            pagination.current_page === pagination.last_page 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                    >
+                                        <span class="hidden sm:inline"></span>
+                                        <span class="sm:hidden">Prox</span>
+                                        <svg class="h-4 w-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+
+                                    <!-- Última Página -->
+                                    <button
+                                        @click="lastPage"
+                                        :disabled="pagination.current_page === pagination.last_page"
+                                        :class="[
+                                            'relative inline-flex items-center px-3 py-2 text-sm font-medium transition-all duration-200',
+                                            pagination.current_page === pagination.last_page 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600' 
+                                                : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:shadow-md dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 active:bg-blue-100 dark:active:bg-blue-900/30'
+                                        ]"
+                                        title="Última página"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -348,10 +920,27 @@ onMounted(() => {
                                     </label>
                                     <input
                                         v-model="form.title"
+                                        @input="validateField('title')"
+                                        @blur="validateField('title')"
                                         type="text"
                                         required
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        maxlength="255"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.title 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
+                                        placeholder="Digite o título da tarefa"
                                     >
+                                    <div class="flex justify-between mt-1">
+                                        <p v-if="formErrors.title" class="text-sm text-red-600 dark:text-red-400">
+                                            {{ formErrors.title }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                                            {{ form.title ? form.title.length : 0 }}/255
+                                        </p>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -360,9 +949,26 @@ onMounted(() => {
                                     </label>
                                     <textarea
                                         v-model="form.description"
+                                        @input="validateField('description')"
+                                        @blur="validateField('description')"
                                         rows="3"
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        maxlength="1000"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.description 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
+                                        placeholder="Descreva os detalhes da tarefa (opcional)"
                                     ></textarea>
+                                    <div class="flex justify-between mt-1">
+                                        <p v-if="formErrors.description" class="text-sm text-red-600 dark:text-red-400">
+                                            {{ formErrors.description }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                                            {{ form.description ? form.description.length : 0 }}/1000
+                                        </p>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -371,9 +977,20 @@ onMounted(() => {
                                     </label>
                                     <input
                                         v-model="form.due_date"
+                                        @change="validateField('due_date')"
+                                        @blur="validateField('due_date')"
                                         type="date"
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        :min="minDate"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.due_date 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
                                     >
+                                    <p v-if="formErrors.due_date" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.due_date }}
+                                    </p>
                                 </div>
                                 
                                 <div v-if="isAdmin">
@@ -382,8 +999,15 @@ onMounted(() => {
                                     </label>
                                     <select
                                         v-model="form.user_id"
+                                        @change="validateField('user_id')"
+                                        @blur="validateField('user_id')"
                                         required
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        :class="[
+                                            'mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white',
+                                            formErrors.user_id 
+                                                ? 'border-red-300 dark:border-red-600' 
+                                                : 'border-gray-300 dark:border-gray-600'
+                                        ]"
                                     >
                                         <option value="">Selecione um usuário</option>
                                         <option
@@ -394,6 +1018,42 @@ onMounted(() => {
                                             {{ user.name }} ({{ user.email }})
                                         </option>
                                     </select>
+                                    <p v-if="formErrors.user_id" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.user_id }}
+                                    </p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Status da Tarefa
+                                    </label>
+                                    <div class="mt-2 space-y-2">
+                                        <label class="inline-flex items-center">
+                                            <input
+                                                type="radio"
+                                                v-model="form.completed"
+                                                :value="false"
+                                                class="text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                                            >
+                                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                                📝 Pendente
+                                            </span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input
+                                                type="radio"
+                                                v-model="form.completed"
+                                                :value="true"
+                                                class="text-green-600 border-gray-300 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700"
+                                            >
+                                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                                ✅ Concluída
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <p v-if="formErrors.completed" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {{ formErrors.completed }}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -401,14 +1061,30 @@ onMounted(() => {
                         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse dark:bg-gray-700">
                             <button
                                 type="submit"
-                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                                :disabled="loading"
+                                :class="[
+                                    'w-full inline-flex justify-center items-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm',
+                                    loading 
+                                        ? 'bg-blue-400 cursor-not-allowed' 
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                ]"
                             >
-                                {{ editingTask ? 'Atualizar' : 'Criar' }}
+                                <svg v-if="loading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {{ loading ? 'Salvando...' : (editingTask ? 'Atualizar' : 'Criar') }}
                             </button>
                             <button
                                 type="button"
                                 @click="closeModal"
-                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500 dark:hover:bg-gray-700"
+                                :disabled="loading"
+                                :class="[
+                                    'mt-3 w-full inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm',
+                                    loading 
+                                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-500 dark:text-gray-300 dark:border-gray-400'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500 dark:hover:bg-gray-700'
+                                ]"
                             >
                                 Cancelar
                             </button>
