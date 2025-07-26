@@ -12,21 +12,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Trust proxies for Railway
         $middleware->trustProxies(at: '*');
+        
+        $middleware->api(prepend: [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
         
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // Register admin middleware
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
 
-        // HTTPS middleware temporarily disabled to fix redirect loop
-        // $middleware->web(\App\Http\Middleware\ForceHttps::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

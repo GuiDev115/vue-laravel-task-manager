@@ -3,26 +3,46 @@ window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-// Configurar CSRF token para requisições AJAX
-let token = document.head.querySelector('meta[name="csrf-token"]');
+// Configurar para usar credenciais (cookies) com Sanctum
+window.axios.defaults.withCredentials = true;
 
-if (token) {
-    window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
+// Função para obter CSRF token atualizado
+function getCsrfToken() {
+    const token = document.head.querySelector('meta[name="csrf-token"]');
+    return token ? token.content : null;
+}
+
+// Função para renovar CSRF token
+async function renewCsrfToken() {
+    try {
+        await axios.get('/sanctum/csrf-cookie');
+        const newToken = getCsrfToken();
+        if (newToken) {
+            window.axios.defaults.headers.common['X-CSRF-TOKEN'] = newToken;
+        }
+        return newToken;
+    } catch (error) {
+        console.error('Failed to renew CSRF token:', error);
+        return null;
+    }
+}
+
+// Configurar CSRF token inicial
+const initialToken = getCsrfToken();
+if (initialToken) {
+    window.axios.defaults.headers.common['X-CSRF-TOKEN'] = initialToken;
 } else {
     console.error('CSRF token not found: https://laravel.com/docs/csrf#csrf-x-csrf-token');
 }
 
-// Configurar interceptor para adicionar headers de sessão do Inertia
-window.axios.interceptors.request.use(function (config) {
-    // Se for uma requisição dentro do contexto do Inertia, usar as credenciais da sessão
+// Configurar interceptor para requests
+window.axios.interceptors.request.use(async function (config) {
     config.withCredentials = true;
     
-    // Garantir que o CSRF token está sempre presente
-    if (!config.headers['X-CSRF-TOKEN']) {
-        const csrfToken = document.head.querySelector('meta[name="csrf-token"]');
-        if (csrfToken) {
-            config.headers['X-CSRF-TOKEN'] = csrfToken.content;
-        }
+    // Sempre obter o token mais recente
+    const currentToken = getCsrfToken();
+    if (currentToken) {
+        config.headers['X-CSRF-TOKEN'] = currentToken;
     }
     
     return config;
@@ -30,14 +50,30 @@ window.axios.interceptors.request.use(function (config) {
     return Promise.reject(error);
 });
 
-// Configurar interceptor para tratar erros de autenticação
+// Configurar interceptor para responses - renovar token em caso de erro 419
 window.axios.interceptors.response.use(function (response) {
     return response;
-}, function (error) {
+}, async function (error) {
+    const originalRequest = error.config;
+    
+    // Se erro 419 (CSRF token mismatch) e não é retry
+    if (error.response && error.response.status === 419 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        console.warn('CSRF token mismatch, attempting to renew...');
+        
+        const newToken = await renewCsrfToken();
+        if (newToken) {
+            originalRequest.headers['X-CSRF-TOKEN'] = newToken;
+            return axios(originalRequest);
+        }
+    }
+    
     if (error.response && error.response.status === 401) {
         console.warn('Unauthorized request detected. User may need to login again.');
         // Opcional: redirecionar para login
         // window.location.href = '/login';
     }
+    
     return Promise.reject(error);
 });
