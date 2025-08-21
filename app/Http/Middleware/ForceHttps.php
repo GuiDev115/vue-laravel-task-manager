@@ -8,9 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ForceHttps
 {
-    /**
-     * Handle an incoming request.
-     */
+    
     public function handle(Request $request, Closure $next): Response
     {
         // Only force HTTPS in production and when not already secure

@@ -10,9 +10,7 @@ use Inertia\Inertia;
 
 class AdminUserController extends Controller
 {
-    /**
-     * Display a listing of users.
-     */
+
     public function index(Request $request)
     {
         $query = User::query();
@@ -46,17 +44,11 @@ class AdminUserController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new user.
-     */
     public function create()
     {
         return Inertia::render('Admin/Users/Create');
     }
 
-    /**
-     * Store a newly created user in storage.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -77,9 +69,6 @@ class AdminUserController extends Controller
                         ->with('success', 'Usuário criado com sucesso!');
     }
 
-    /**
-     * Display the specified user.
-     */
     public function show(User $user)
     {
         $user->load(['tasks' => function ($query) {
@@ -97,9 +86,6 @@ class AdminUserController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for editing the specified user.
-     */
     public function edit(User $user)
     {
         return Inertia::render('Admin/Users/Edit', [
@@ -107,9 +93,7 @@ class AdminUserController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified user in storage.
-     */
+
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
@@ -135,9 +119,6 @@ class AdminUserController extends Controller
                         ->with('success', 'Usuário atualizado com sucesso!');
     }
 
-    /**
-     * Remove the specified user from storage.
-     */
     public function destroy(User $user)
     {
         // Não permitir que o admin delete a si mesmo

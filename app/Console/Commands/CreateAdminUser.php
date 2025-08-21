@@ -56,7 +56,7 @@ class CreateAdminUser extends Command
                 'email_verified_at' => now(),
             ]);
 
-            $this->info("✅ Administrador criado com sucesso!");
+            $this->info("Administrador criado com sucesso!");
             $this->table(['Campo', 'Valor'], [
                 ['ID', $user->id],
                 ['Nome', $user->name],

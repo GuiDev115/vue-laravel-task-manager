@@ -11,9 +11,7 @@ use Inertia\Inertia;
 
 class TaskController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
@@ -48,9 +46,6 @@ class TaskController extends Controller
         return response()->json($tasks);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $user = Auth::user();
@@ -87,9 +82,6 @@ class TaskController extends Controller
         return response()->json($task, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Task $task): JsonResponse
     {
         $user = Auth::user();
@@ -103,9 +95,6 @@ class TaskController extends Controller
         return response()->json($task);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Task $task): JsonResponse
     {
         $user = Auth::user();
@@ -146,9 +135,6 @@ class TaskController extends Controller
         return response()->json($task);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Task $task): JsonResponse
     {
         $user = Auth::user();
@@ -176,9 +162,6 @@ class TaskController extends Controller
         return response()->json(['message' => 'Tarefa excluída com sucesso']);
     }
 
-    /**
-     * Toggle task completion status.
-     */
     public function toggle(Task $task): JsonResponse
     {
         $user = Auth::user();
@@ -195,9 +178,6 @@ class TaskController extends Controller
         return response()->json($task);
     }
 
-    /**
-     * Export tasks to CSV.
-     */
     public function export(): \Symfony\Component\HttpFoundation\StreamedResponse
     {
         $user = Auth::user();
@@ -248,9 +228,6 @@ class TaskController extends Controller
         }, 'tasks.csv', $headers);
     }
 
-    /**
-     * Render the tasks index page with Inertia
-     */
     public function indexPage(Request $request)
     {
         $user = Auth::user();

@@ -58,7 +58,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <Head title="TaskManager - Sistema de Gerenciamento de Tarefas" />
+    <Head title="TaskManager" />
     
     <!-- DEBUG: Landing page personalizada carregada -->
     <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
@@ -84,7 +84,7 @@ onMounted(() => {
                         <Link
                             v-if="canRegister"
                             :href="route('register')"
-                            class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105"
+                            class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-600 transition-all transform hover:scale-105 shadow-lg"
                         >
                             Cadastrar
                         </Link>
@@ -177,6 +177,7 @@ onMounted(() => {
         </section>
 
         <!-- Demo Section -->
+         <!-- Interface Intuitiva 
         <section class="py-20">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
@@ -211,6 +212,7 @@ onMounted(() => {
                 </div>
             </div>
         </section>
+        -->
 
         <!-- CTA Section -->
         <section class="py-20 bg-gradient-to-r from-blue-600 to-indigo-600">
